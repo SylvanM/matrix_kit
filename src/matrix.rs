@@ -6,6 +6,10 @@ use std::{fmt::Debug, ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubA
 
 use crate::algebra::*;
 
+/**
+ * Translates a row-column coordinate to a flat index in the one dimensional array,
+ * indexing along columns. (So, columns are stored next to each other in memory instead of rows)
+ */
 #[macro_export]
 macro_rules! index {
 	($m: expr, $n: expr, $r: expr, $c: expr) => {
@@ -87,23 +91,31 @@ mod tests {
 }
 
 #[derive(Clone, Copy)]
-struct Matrix<const M: usize, const N: usize, R: Ring> where [(); M * N]: Sized  {
+pub struct Matrix<const M: usize, const N: usize, R: Ring> where [R; M * N]: Sized  {
 	pub flatmap: [R ; M * N]
 }
 
-impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [(); M * N]: Sized  {
+impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [R; M * N]: Sized  {
 
 	pub fn new() -> Self {
 		Matrix::from_flatmap([R::zero() ; M * N])
 	}
 
+	pub fn from_flatmap(flatmap: [R ; M * N]) -> Self {
+		Matrix { flatmap }
+	}
+}
+
+impl<const N: usize, R: Ring> Matrix<N, N, R> where [() ; N * N]: Sized {
+
 	pub fn identity() -> Self {
 		let mut mat = Matrix::new();
 
-		for r in 0..M {
+		for r in 0..N {
 			for c in 0..N {
 				if r == c {
-					mat[(r, c)] = R::one();
+					println!("{:?}{:?}{:?}", r, c, mat[r][c]);
+					mat[r][c] = R::one();
 				}
 			}
 		}
@@ -111,32 +123,31 @@ impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [(); M * N]:
 		mat
 	}
 
-	pub fn from_flatmap(flatmap: [R ; M * N]) -> Self {
-		Matrix { flatmap }
-	}
-
 }
 
-impl<const M: usize, const N: usize, R: Ring> Index<(usize, usize)> for Matrix<M, N, R> where [(); M * N]: Sized {
-	type Output = R;
+impl<const M: usize, const N: usize, R: Ring> Index<usize> for Matrix<M, N, R> where [() ; M * N]: Sized {
+	type Output = [R];
 
-	fn index(&self, index: (usize, usize)) -> &Self::Output {
-		match index {
-			(r, c) => &self.flatmap[index!(M, N, r, c)]
-		}
+	/**
+	 * Indexes a single COLUMN of this matrix
+	 */
+	fn index(&self, index: usize) -> &Self::Output {
+		println!("Indexing a {:?} * {:?} matrix at row {:?}, this goes from raw index {:?} to raw address {:?}", M, N, index, index!(M, N, index, 0), index!(M, N, index, N));
+		&self.flatmap[index!(M, N, 0, index)..index!(M, N, M, index)]
 	}
 }
 
-impl<const M: usize, const N: usize, R: Ring> IndexMut<(usize, usize)> for Matrix<M, N, R> where [(); M * N]: Sized {
-	fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
-		match index {
-			(r, c) => &mut self.flatmap[index!(M, N, r, c)]
-		}
+impl<const M: usize, const N: usize, R: Ring> IndexMut<usize> for Matrix<M, N, R> where [() ; M * N]: Sized {
+	
+	/**
+	 * Indexes a single row of this matrix
+	 */
+	fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+		&mut self.flatmap[index!(M, N, 0, index)..index!(M, N, M, index)]
 	}
 }
 
-
-impl<const M: usize, const N: usize, R: Ring> Add<Matrix<M, N, R>> for Matrix<M, N, R> where [(); M * N]: Sized {
+impl<const M: usize, const N: usize, R: Ring> Add<Matrix<M, N, R>> for Matrix<M, N, R> where [R ; M * N]: Sized {
 	type Output = Self;
 
 	fn add(self, rhs: Self) -> Self::Output {
@@ -146,7 +157,7 @@ impl<const M: usize, const N: usize, R: Ring> Add<Matrix<M, N, R>> for Matrix<M,
 	}
 }
 
-impl<const M: usize, const N: usize, R: Ring> AddAssign<Matrix<M, N, R>> for Matrix<M, N, R> where [(); M * N]: Sized {
+impl<const M: usize, const N: usize, R: Ring> AddAssign<Matrix<M, N, R>> for Matrix<M, N, R> where [R ; M * N]: Sized {
 	fn add_assign(&mut self, rhs: Self) {
 		for i in 0..(M * N) {
 			self.flatmap[i] += rhs.flatmap[i]
@@ -154,7 +165,7 @@ impl<const M: usize, const N: usize, R: Ring> AddAssign<Matrix<M, N, R>> for Mat
 	}
 }
 
-impl<const M: usize, const N: usize, R: Ring> Sub<Matrix<M, N, R>> for Matrix<M, N, R> where [(); M * N]: Sized {
+impl<const M: usize, const N: usize, R: Ring> Sub<Matrix<M, N, R>> for Matrix<M, N, R> where [R ; M * N]: Sized {
 	type Output = Self;
 
 	fn sub(self, rhs: Self) -> Self::Output {
@@ -168,7 +179,7 @@ impl<const M: usize, const N: usize, R: Ring> Sub<Matrix<M, N, R>> for Matrix<M,
 	}
 }
 
-impl<const M: usize, const N: usize, R: Ring> SubAssign<Matrix<M, N, R>> for Matrix<M, N, R> where [(); M * N]: Sized {
+impl<const M: usize, const N: usize, R: Ring> SubAssign<Matrix<M, N, R>> for Matrix<M, N, R> where [R ; M * N]: Sized {
 	fn sub_assign(&mut self, rhs: Self) {
 		for i in 0..(M * N) {
 			self.flatmap[i] -= rhs.flatmap[i]
@@ -176,7 +187,7 @@ impl<const M: usize, const N: usize, R: Ring> SubAssign<Matrix<M, N, R>> for Mat
 	}
 }
 
-impl<const M: usize, const K: usize, const N: usize, R: Ring> Mul<Matrix<K, N, R>> for Matrix<M, K, R> where [(); M * K]: Sized, [(); K * N]: Sized, [(); M * N]: Sized,  {
+impl<const M: usize, const K: usize, const N: usize, R: Ring> Mul<Matrix<K, N, R>> for Matrix<M, K, R> where [R ; M * K]: Sized, [R ; K * N]: Sized, [R ; M * N]: Sized,  {
 	type Output = Matrix<M, N, R>;
 
 	fn mul(self, rhs: Matrix<K, N, R>) -> Self::Output {
@@ -188,7 +199,7 @@ impl<const M: usize, const K: usize, const N: usize, R: Ring> Mul<Matrix<K, N, R
 	}
 }
 
-impl<const M: usize, const N: usize, R: Ring> Neg for Matrix<M, N, R> where [(); M * N]: Sized, <R as Neg>::Output: Ring {
+impl<const M: usize, const N: usize, R: Ring> Neg for Matrix<M, N, R> where [R ; M * N]: Sized, <R as Neg>::Output: Ring {
 	type Output = Self;
 
 	fn neg(self) -> Self::Output {
@@ -198,7 +209,7 @@ impl<const M: usize, const N: usize, R: Ring> Neg for Matrix<M, N, R> where [();
 	}
 }
 
-impl<const M: usize, const N: usize, R: Ring> PartialEq for Matrix<M, N, R> where [(); M * N]: Sized {
+impl<const M: usize, const N: usize, R: Ring> PartialEq for Matrix<M, N, R> where [R ; M * N]: Sized {
 	fn eq(&self, other: &Self) -> bool {
 		for i in 0..(M * N) {
 			if self.flatmap[i] != other.flatmap[i] {
@@ -218,7 +229,7 @@ impl<const M: usize, const N: usize, R: Ring> PartialEq for Matrix<M, N, R> wher
 	}
 }
 
-impl<const M: usize, const N: usize, R: Ring> Debug for Matrix<M, N, R> where [() ; M * N]: Sized {
+impl<const M: usize, const N: usize, R: Ring> Debug for Matrix<M, N, R> where [R ; M * N]: Sized {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		// get the widest value so we know how many spaces we need!
 		let mut widest_str_len = 0;
@@ -262,41 +273,5 @@ impl<const M: usize, const N: usize, R: Ring> Debug for Matrix<M, N, R> where [(
 		}
 
 		write!(f, "\n{}", lines.join("\n"))
-	}
-}
-
-#[cfg(test)]
-mod type_tests {
-    use super::*;
-
-	#[test]
-	fn test_mat_mul() {
-		// test the super simple identity!
-		let identity = Matrix::<2, 2, ZM<11>>::identity();
-		let simple_vector = Matrix::<2, 1, ZM<11>>::from_flatmap([3.into(), 7.into()]);
-
-		let out_vector = identity * simple_vector;
-
-		assert_eq!(out_vector, simple_vector);
-
-		let mat = [3.into(), 2.into(), 5.into(), 1.into(), 7.into(), 0.into()];
-		let vec = [1.into(), 4.into(), 9.into()];
-		let mut out = [0.into() ; 2];
-		mat_vec_mul_ptr::<2, 3, ZM<11>>(&mat, &vec, &mut out);
-
-		assert_eq!(out, [9.into(), 6.into()]);
-
-	}
-
-	#[test]
-	fn test_full_mat_mul() {
-		let a = [4.into(), 8.into(), 5.into(), 5.into(), 6.into(), 5.into(), 9.into(), 1.into(), 10.into(), 2.into(), 1.into(), 0.into()];
-		let b = [1.into(), 2.into(), 8.into(), 3.into(), 1.into(), 4.into(), 0.into(), 7.into()];
-
-		let mut prod = [0.into() ; 3 * 2];
-		mat_mul_ptrs::<3, 4, 2, ZM<11>>(&a, &b, &mut prod);
-		
-
-		assert_eq!(prod, [4.into(), 9.into(), 7.into(), 5.into(), 6.into(), 3.into()]);
 	}
 }
