@@ -3,8 +3,9 @@
 //
 
 use std::fmt::Debug;
-// use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::ops::{Add, Neg, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+
 
 /**
  * An algebraic ring
@@ -174,6 +175,12 @@ impl Ring for i128 {
 #[derive(Clone, Copy, Default)]
 pub struct ZM<const Q: i64> {
 	pub val: i64
+}
+
+impl<const Q: i64> ZM<Q> {
+	fn rnd() -> ZM<Q> {
+		ZM::<Q> { val: StdRng::from_entropy().gen::<i64>().rem_euclid(Q) }
+	}
 }
 
 impl<const Q: i64> Debug for ZM<Q> {

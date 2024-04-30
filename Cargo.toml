@@ -1,6 +1,6 @@
 [package]
 name = "matrix_kit"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "GPL-3.0-or-later"
 description = "A simple cryptographic suite for Rust"
@@ -9,3 +9,4 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rand = "0.8.5"
