@@ -178,7 +178,7 @@ pub struct ZM<const Q: i64> {
 }
 
 impl<const Q: i64> ZM<Q> {
-	fn rnd() -> ZM<Q> {
+	pub fn rnd() -> ZM<Q> {
 		ZM::<Q> { val: StdRng::from_entropy().gen::<i64>().rem_euclid(Q) }
 	}
 }
