@@ -95,7 +95,7 @@ pub struct Matrix<const M: usize, const N: usize, R: Ring> where [R; M * N]: Siz
 	pub flatmap: [R ; M * N]
 }
 
-impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [R; M * N]: Sized  {
+impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [(); M * N]: Sized  {
 
 	pub fn new() -> Self {
 		Matrix::from_flatmap([R::zero() ; M * N])
@@ -103,10 +103,7 @@ impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [R; M * N]: 
 
 	pub fn from_flatmap(flatmap: [R ; M * N]) -> Self {
 		Matrix { flatmap }
-	}
-}
-
-impl<const N: usize, R: Ring> Matrix<N, N, R> where [() ; N * N]: Sized {
+	} 
 
 	pub fn identity() -> Self {
 		let mut mat = Matrix::new();
@@ -114,13 +111,30 @@ impl<const N: usize, R: Ring> Matrix<N, N, R> where [() ; N * N]: Sized {
 		for r in 0..N {
 			for c in 0..N {
 				if r == c {
-					println!("{:?}{:?}{:?}", r, c, mat[r][c]);
 					mat[r][c] = R::one();
 				}
 			}
 		}
 
 		mat
+	}
+
+	pub fn rhs_concat<const K: usize>(self, rhs: Matrix<M, K, R>) -> Matrix<M, {N + K}, R> where [() ; M * K]: Sized, [() ; M * {N + K}]: Sized {
+		let mut big_mat = Matrix::<M, {N + K}, R>::new();
+
+		for r in 0..M {
+			for c in 0..N {
+				big_mat.flatmap[index!(M, N + K, r, c)] = self.flatmap[index!(M, N, r, c)]
+			}
+		}
+
+		for r in 0..M {
+			for c in 0..K {
+				big_mat.flatmap[index!(M, N + K, r, c + N)] = rhs.flatmap[index!(M, K, r, c)]
+			}
+		}
+		
+		big_mat
 	}
 
 }

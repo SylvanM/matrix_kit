@@ -38,4 +38,12 @@ mod matrix_tests {
 
 		assert_eq!(prod, Matrix::<3, 2, ZM<11>>::from_flatmap([4.into(), 9.into(), 7.into(), 5.into(), 6.into(), 3.into()]));
 	}
+
+	#[test]
+	fn test_matrix_cat() {
+		let a = Matrix::<3, 4, i32>::from_flatmap([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+		let b = Matrix::<3, 1, i32>::from_flatmap([0, 0, 0]);
+		let c = a.rhs_concat(b);
+		print!("{:?}", c);
+	}
 }
