@@ -49,7 +49,35 @@ mod matrix_tests {
 	#[test]
 	fn test_ref() {
 		let mut a = Matrix::<2, 3, f64>::from_flatmap([1.0, 2.0, 5.0, 11.0, 1.0, 5.0]);
-		a.reduced_row_echelon();
+		a.reduced_row_echelon_inplace();
 		println!("{:?}", a);
+	}
+
+	#[test]
+	fn test_det() {
+		
+		assert_eq!(Matrix::<3, 3, i64>::identity().det(), 1);
+
+		let big_guy = Matrix::<4, 4, i64>::from_flatmap([5, 354, 6, 99, 9, 8, 3, 62, 3, 5, 52, 2, 88, 46, 3, 1]);
+		assert_eq!(big_guy.det(), 97654308);
+
+		let big_guy = Matrix::<4, 4, f64>::from_flatmap([5.0, 354.0, 6.0, 99.0, 9.0, 8.0, 3.0, 62.0, 3.0, 5.0, 52.0, 2.0, 88.0, 46.0, 3.0, 1.0]);
+
+		assert!((big_guy.det() - 97654308.0).abs() < 0.0000001); // floating point error, whaddya gonna do?
+	}
+
+	#[test]
+	fn test_minors() {
+		// TODO: Fix here
+		let big_guy = Matrix::<4, 4, f64>::from_flatmap([5.0, 354.0, 6.0, 99.0, 9.0, 8.0, 3.0, 62.0, 3.0, 5.0, 52.0, 2.0, 88.0, 46.0, 3.0, 1.0]);
+
+		let omitting_second_row = big_guy.omitting_row(1);
+		let omitting_second_col = big_guy.omitting_col(1);
+		let omitting_first_row = big_guy.omitting_row(0);
+		let omitting_first_col = big_guy.omitting_col(0);
+
+		println!("Original: {:?}", big_guy);
+
+		println!("{:?}{:?}{:?}{:?}", omitting_first_col, omitting_first_row, omitting_second_col, omitting_second_row);
 	}
 }
