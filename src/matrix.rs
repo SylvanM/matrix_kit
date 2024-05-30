@@ -2,7 +2,7 @@
 // A matrix!
 //
 
-use std::{fmt::Debug, ops::{Add, AddAssign, Index, IndexMut, Mul, Neg, Sub, SubAssign}};
+use std::{fmt::Debug, ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign}};
 
 use crate::algebra::*;
 
@@ -90,6 +90,8 @@ mod tests {
 	}
 }
 
+// MARK: Matrix Type
+
 #[derive(Clone, Copy)]
 pub struct Matrix<const M: usize, const N: usize, R: Ring> where [R; M * N]: Sized  {
 	pub flatmap: [R ; M * N]
@@ -137,7 +139,31 @@ impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [(); M * N]:
 		big_mat
 	}
 
+	// MARK: Row Operations
+
+	pub fn swap_rows(mut self, row1: usize, row2: usize) {
+		for c in 0..N {
+			let temp = self.flatmap[index!(M, N, row1, c)];
+			self.flatmap[index!(M, N, row1, c)] = self.flatmap[index!(M, N, row2, c)];
+			self.flatmap[index!(M, N, row2, c)] = temp;
+		}
+	}
+
+	pub fn scale_row(&mut self, row: usize, scalar: R) {
+		for c in 0..N {
+			self.flatmap[index!(M, N, row, c)] *= scalar
+		}
+	}
+
+	pub fn add_scaled_row(&mut self, scalar: R, source_row: usize, des_row: usize) {
+		for c in 0..N {
+			self.flatmap[index!(M, N, des_row, c)] += scalar * self.flatmap[index!(M, N, source_row, c)]
+		}
+	}
+
 }
+
+// MARK: Index
 
 impl<const M: usize, const N: usize, R: Ring> Index<usize> for Matrix<M, N, R> where [() ; M * N]: Sized {
 	type Output = [R];
@@ -146,7 +172,6 @@ impl<const M: usize, const N: usize, R: Ring> Index<usize> for Matrix<M, N, R> w
 	 * Indexes a single COLUMN of this matrix
 	 */
 	fn index(&self, index: usize) -> &Self::Output {
-		println!("Indexing a {:?} * {:?} matrix at row {:?}, this goes from raw index {:?} to raw address {:?}", M, N, index, index!(M, N, index, 0), index!(M, N, index, N));
 		&self.flatmap[index!(M, N, 0, index)..index!(M, N, M, index)]
 	}
 }
@@ -160,6 +185,8 @@ impl<const M: usize, const N: usize, R: Ring> IndexMut<usize> for Matrix<M, N, R
 		&mut self.flatmap[index!(M, N, 0, index)..index!(M, N, M, index)]
 	}
 }
+
+// MARK: Operations
 
 impl<const M: usize, const N: usize, R: Ring> Add<Matrix<M, N, R>> for Matrix<M, N, R> where [R ; M * N]: Sized {
 	type Output = Self;
@@ -205,8 +232,6 @@ impl<const M: usize, const K: usize, const N: usize, R: Ring> Mul<Matrix<K, N, R
 	type Output = Matrix<M, N, R>;
 
 	fn mul(self, rhs: Matrix<K, N, R>) -> Self::Output {
-		println!("Multiplying {:?} by {:?}", self, rhs);
-
 		let mut prod = Matrix::<M, N, R>::new();
 		mat_mul_ptrs::<M, K, N, R>(&self.flatmap, &rhs.flatmap, &mut prod.flatmap);
 		prod
@@ -220,6 +245,24 @@ impl<const M: usize, const N: usize, R: Ring> Neg for Matrix<M, N, R> where [R ;
 		let mut negative = Matrix::new();
 		scalar_mul::<{M * N}, R>(-R::one(), &self.flatmap, &mut negative.flatmap);
 		negative
+	}
+}
+
+impl<const M: usize, const N: usize, R: Ring> Mul<R> for Matrix<M, N, R> where [R ; M * N]: Sized {
+	type Output = Matrix<M, N, R>;
+
+	fn mul(self, rhs: R) -> Self::Output {
+		let mut scaled = self;
+		scaled *= rhs;
+		scaled
+	}
+}
+
+impl<const M: usize, const N: usize, R: Ring> MulAssign<R> for Matrix<M, N, R> where [R ; M * N]: Sized {
+	fn mul_assign(&mut self, rhs: R) {
+		for i in 0..(M * N) {
+			self.flatmap[i] *= rhs;
+		}
 	}
 }
 
@@ -287,5 +330,135 @@ impl<const M: usize, const N: usize, R: Ring> Debug for Matrix<M, N, R> where [R
 		}
 
 		write!(f, "\n{}", lines.join("\n"))
+	}
+}
+
+// MARK: Gaussian Elimination
+
+/**
+ * Performs row reduction to echelon form, but **not** necessarily *reduced* row echelon form, This should *only* be called from `rowEchelon`
+ * and if this is also being used to compute an inverse, the sequence of row operations perfomed on this matrix
+ * are also performed on a given matrix as a recipient.
+ */ 
+fn _ref_rec<const M: usize, const N: usize, F: Field>(matrix: &mut Matrix<M, N, F>, pivots: &mut [usize ; N], starting_col: usize, pivot_row: usize) where [(); M * N]: Sized {
+
+	if pivot_row == M || starting_col == N {
+		if starting_col != N {
+			// -1 out the remaining pivots
+			for c in starting_col..N {
+				pivots[c] = usize::MAX; // hopefully no matrix is big enough that this is a problem
+			}
+		}
+
+		return;
+	}
+
+	pivots[starting_col] = pivot_row;
+
+	if matrix.flatmap[index!(M, N, pivot_row, starting_col)] == F::zero() {
+		// find the first nonzero entry of this column, and move that to be the pivot
+		for r in (pivot_row + 1)..M {
+			if matrix.flatmap[index!(M, N, r, starting_col)] != F::zero() {
+				// we found a new pivot possibility! Swap it to be the pivot.
+				matrix.swap_rows(pivot_row, r);
+				_ref_rec(matrix, pivots, starting_col, pivot_row);
+				return;
+			}
+		}
+
+		// there are only zeros from here down, so this entry is not a pivot.
+		pivots[starting_col] = usize::MAX;
+		_ref_rec(matrix, pivots, starting_col + 1, pivot_row);
+		return;
+	}
+
+
+	let pivot_entry = matrix.flatmap[index!(M, N, pivot_row, starting_col)];
+        
+	for r in (pivot_row + 1)..M {
+		let entry = matrix.flatmap[index!(M, N, r, starting_col)];
+		if entry == F::zero() { continue; }
+
+		let scalar = -entry / pivot_entry;
+
+		matrix.add_scaled_row(scalar, pivot_row, r);
+	}
+
+	_ref_rec(matrix, pivots, starting_col + 1, pivot_row + 1)
+}
+
+/**
+ * This function is *only* to be called by reduced_ref(), only after ref() has been called.
+ */
+fn _rref_rec<const M: usize, const N: usize, F: Field>(matrix: &mut Matrix<M, N, F>, pivots: &mut [usize ; N], starting_col: usize) where [(); M * N]: Sized {
+	
+	if starting_col == N {
+		return; // we're done
+	}
+
+	let pivot_row = pivots[starting_col];
+
+	if pivot_row == usize::MAX {
+		// skip this column
+		_rref_rec(matrix, pivots, starting_col + 1);
+	} else {
+		// normalize this row relative to the pivot
+		let pivot_entry = matrix.flatmap[index!(M, N, pivot_row, starting_col)];
+		matrix.scale_row(pivot_row, pivot_entry.inverse());
+
+		// eliminate other entries in this column above
+		for r in 0..pivot_row {
+
+			let entry = matrix.flatmap[index!(M, N, r, starting_col)];
+
+			if entry == F::zero() { continue; }
+
+			matrix.add_scaled_row(-entry, pivot_row, r);
+		}
+
+		_rref_rec(matrix, pivots, starting_col + 1);
+	}
+}
+
+impl<const M: usize, const N: usize, F: Field> Matrix<M, N, F> where [(); M * N]: Sized {
+
+	/**
+	 * Converts this matrix into row echelon form, in-place.
+	 *
+	 * Different authors use different meanings of "row echelon form" versus "*reduced* row echelon form", so for clarity,
+     * I am using the same definitions as are used here: https://en.wikipedia.org/wiki/Row_echelon_form
+	 */
+	pub fn row_echelon(&mut self) {
+		let mut pivots = [0 ; N];
+		_ref_rec(self, &mut pivots, 0, 0);
+	}
+
+	/**
+	 * Converts this matrix into *reduced* row echelon form, in-place.
+	 *
+	 * Different authors use different meanings of "row echelon form" versus "*reduced* row echelon form", so for clarity,
+     * I am using the same definitions as are used here: https://en.wikipedia.org/wiki/Row_echelon_form
+	 */
+	pub fn reduced_row_echelon(&mut self) {
+		let mut pivots = [0 ; N];
+		_ref_rec(self, &mut pivots, 0, 0);
+		_rref_rec(self, &mut pivots, 0);
+	}
+
+}
+
+// MARK: Vectors
+
+impl<const N: usize, R: Ring> InnerProductSpace<R> for Matrix<N, 1, R> where [() ; N * 1]: Sized {
+	fn inner_product(self, other: Self) -> R {
+		let mut prod = R::zero();
+		vec_dot_prod_ptr::<1, N, R>(&self.flatmap, 0, &other.flatmap, &mut prod);
+		prod
+	}
+}
+
+impl<const N: usize> NormSpace for Matrix<N, 1, f64> where [() ; N * 1]: Sized {
+	fn norm(self) -> f64 {
+		f64::sqrt(self.inner_product(self))
 	}
 }

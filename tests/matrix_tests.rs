@@ -35,7 +35,6 @@ mod matrix_tests {
 
 		let prod = a * b;
 		
-
 		assert_eq!(prod, Matrix::<3, 2, ZM<11>>::from_flatmap([4.into(), 9.into(), 7.into(), 5.into(), 6.into(), 3.into()]));
 	}
 
@@ -45,5 +44,12 @@ mod matrix_tests {
 		let b = Matrix::<3, 1, i32>::from_flatmap([0, 0, 0]);
 		let c = a.rhs_concat(b);
 		print!("{:?}", c);
+	}
+
+	#[test]
+	fn test_ref() {
+		let mut a = Matrix::<2, 3, f64>::from_flatmap([1.0, 2.0, 5.0, 11.0, 1.0, 5.0]);
+		a.reduced_row_echelon();
+		println!("{:?}", a);
 	}
 }

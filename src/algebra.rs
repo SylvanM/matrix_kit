@@ -6,6 +6,7 @@ use std::fmt::Debug;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::ops::{Add, Neg, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
+// MARK: Ring
 
 /**
  * An algebraic ring
@@ -28,11 +29,22 @@ pub trait Ring: Debug + PartialEq + Copy + Sized + Add<Self> + AddAssign<Self> +
    	fn power(self, n: i64) -> Self;
 }
 
+// MARK: Field
+
 /**
  * A field, which is a ring where every nonzero element has a multiplicative inverse
  */
 pub trait Field: Ring + Div + DivAssign + Div<Output = Self> {
 	fn inverse(self) -> Self;
+}
+
+// MARK: Inner Product Space
+pub trait InnerProductSpace<R: Ring> {
+	fn inner_product(self, other: Self) -> R;
+}
+
+pub trait NormSpace {
+	fn norm(self) -> f64;
 }
 
 // MARK: Implementations
