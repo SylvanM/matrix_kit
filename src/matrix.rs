@@ -161,6 +161,18 @@ impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [(); M * N]:
 		}
 	}
 
+	// MARK: Transpose
+
+	pub fn transpose(self) -> Matrix<N, M, R> where [() ; N * M]: Sized  { // <-- It's silly that I have to do thata
+		let mut t = Matrix::<N, M, R>::new();
+		for r in 0..M {
+			for c in 0..N {
+				t.flatmap[index!(N, M, c, r)] = self.flatmap[index!(M, N, r, c)];
+			}
+		}
+		t
+	}
+
 }
 
 // MARK: Index
