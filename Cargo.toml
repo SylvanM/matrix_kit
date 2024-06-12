@@ -3,10 +3,11 @@ name = "matrix_kit"
 version = "0.1.7"
 edition = "2021"
 license = "GPL-3.0-or-later"
-description = "A simple cryptographic suite for Rust"
+description = "An abstract linear algebra library for Rust"
 readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+algebra_kit = "0.1.10"
 rand = "0.8.5"

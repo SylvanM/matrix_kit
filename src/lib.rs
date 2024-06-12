@@ -2,5 +2,4 @@
 #![feature(generic_const_exprs)]
 #![feature(specialization)]
 
-pub mod algebra;
 pub mod matrix;

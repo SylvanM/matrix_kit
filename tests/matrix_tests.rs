@@ -1,12 +1,11 @@
 #![feature(generic_const_exprs)]
 
 use matrix_kit::matrix::*;
-use matrix_kit::algebra::*;
-
-
 
 #[cfg(test)]
 mod matrix_tests {
+
+    use algebra_kit::std_impls::ZM;
 
     use super::*;
 

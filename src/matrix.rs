@@ -4,7 +4,7 @@
 
 use std::{cell::RefCell, default, fmt::Debug, mem::swap, ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign}};
 
-use crate::algebra::*;
+use algebra_kit::algebra::*;
 
 /**
  * Translates a row-column coordinate to a flat index in the one dimensional array,
@@ -23,7 +23,7 @@ macro_rules! index {
 fn vec_dot_prod_ptr<const M: usize, const N: usize, R: Ring>(x: &[R], r: usize, y: &[R], out: &mut R) {
 	*out = R::zero();
 	for i in 0..N {
-		*out += x[index!(M, N, r, i)] * y[i]
+		*out += x[index!(M, N, r, i)].clone() * y[i].clone()
 	}
 }
 
@@ -35,13 +35,13 @@ fn mat_vec_mul_ptr<const M: usize, const N: usize, R: Ring>(a: &[R], vec: &[R], 
 
 fn mat_add<const M: usize, const N: usize, R: Ring>(a: &[R], b: &[R], out: &mut [R]) {
 	for i in 0..(M * N) {
-		out[i] = a[i] + b[i];
+		out[i] = a[i].clone() + b[i].clone();
 	}
 }
 
 fn scalar_mul<const N: usize, R: Ring>(k: R, v: &[R], out: &mut [R]) {
 	for i in 0..N {
-		out[i] = k * v[i];
+		out[i] = k.clone() * v[i].clone();
 	}
 }
 
@@ -56,6 +56,8 @@ fn mat_mul_ptrs<const M: usize, const K: usize, const N: usize, R: Ring>(a: &[R]
 
 #[cfg(test)]
 mod tests {
+    use algebra_kit::std_impls::ZM;
+
     use super::*;
 
 	#[test]
@@ -100,7 +102,7 @@ pub struct Matrix<const M: usize, const N: usize, R: Ring> where [R; M * N]: Siz
 impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [(); M * N]: Sized  {
 
 	pub fn new() -> Self {
-		Matrix::from_flatmap([R::zero() ; M * N])
+		Matrix::from_flatmap(core::array::from_fn(|_| R::zero()))
 	}
 
 	pub fn from_flatmap(flatmap: [R ; M * N]) -> Self {
@@ -121,18 +123,18 @@ impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [(); M * N]:
 		mat
 	}
 
-	pub fn rhs_concat<const K: usize>(self, rhs: Matrix<M, K, R>) -> Matrix<M, {N + K}, R> where [() ; M * K]: Sized, [() ; M * {N + K}]: Sized {
+	pub fn rhs_concat<const K: usize>(&self, rhs: Matrix<M, K, R>) -> Matrix<M, {N + K}, R> where [() ; M * K]: Sized, [() ; M * {N + K}]: Sized {
 		let mut big_mat = Matrix::<M, {N + K}, R>::new();
 
 		for r in 0..M {
 			for c in 0..N {
-				big_mat.flatmap[index!(M, N + K, r, c)] = self.flatmap[index!(M, N, r, c)]
+				big_mat.flatmap[index!(M, N + K, r, c)] = self.flatmap[index!(M, N, r, c)].clone()
 			}
 		}
 
 		for r in 0..M {
 			for c in 0..K {
-				big_mat.flatmap[index!(M, N + K, r, c + N)] = rhs.flatmap[index!(M, K, r, c)]
+				big_mat.flatmap[index!(M, N + K, r, c + N)] = rhs.flatmap[index!(M, K, r, c)].clone()
 			}
 		}
 		
@@ -141,23 +143,23 @@ impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [(); M * N]:
 
 	// MARK: Row Operations
 
-	pub fn swap_rows(mut self, row1: usize, row2: usize) {
+	pub fn swap_rows(&mut self, row1: usize, row2: usize) {
 		for c in 0..N {
-			let temp = self.flatmap[index!(M, N, row1, c)];
-			self.flatmap[index!(M, N, row1, c)] = self.flatmap[index!(M, N, row2, c)];
+			let temp = self.flatmap[index!(M, N, row1, c)].clone();
+			self.flatmap[index!(M, N, row1, c)] = self.flatmap[index!(M, N, row2, c)].clone();
 			self.flatmap[index!(M, N, row2, c)] = temp;
 		}
 	}
 
 	pub fn scale_row(&mut self, row: usize, scalar: R) {
 		for c in 0..N {
-			self.flatmap[index!(M, N, row, c)] *= scalar
+			self.flatmap[index!(M, N, row, c)] *= scalar.clone()
 		}
 	}
 
 	pub fn add_scaled_row(&mut self, scalar: R, source_row: usize, des_row: usize) {
 		for c in 0..N {
-			self.flatmap[index!(M, N, des_row, c)] += scalar * self.flatmap[index!(M, N, source_row, c)]
+			self.flatmap[index!(M, N, des_row, c)] += scalar.clone() * self.flatmap[index!(M, N, source_row, c)].clone()
 		}
 	}
 
@@ -167,7 +169,7 @@ impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [(); M * N]:
 		let mut t = Matrix::<N, M, R>::new();
 		for r in 0..M {
 			for c in 0..N {
-				t.flatmap[index!(N, M, c, r)] = self.flatmap[index!(M, N, r, c)];
+				t.flatmap[index!(N, M, c, r)] = self.flatmap[index!(M, N, r, c)].clone();
 			}
 		}
 		t
@@ -209,7 +211,7 @@ impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [() ; M * N]
 			if r_s == row { continue; }
 
 			for c in 0..N {
-				row_minor.flatmap[index!(M - 1, N, r_d, c)] = self.flatmap[index!(M, N, r_s, c)];
+				row_minor.flatmap[index!(M - 1, N, r_d, c)] = self.flatmap[index!(M, N, r_s, c)].clone();
 			}
 
 			r_d += 1;
@@ -226,7 +228,7 @@ impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [() ; M * N]
 			if c_s == col { continue; }
 
 			for r in 0..N {
-				col_minor.flatmap[index!(M - 1, N, r, c_d)] = self.flatmap[index!(M, N, r, c_s)];
+				col_minor.flatmap[index!(M - 1, N, r, c_d)] = self.flatmap[index!(M, N, r, c_s)].clone();
 			}
 
 			c_d += 1;
@@ -245,7 +247,7 @@ impl<const M: usize, const N: usize, R: Ring> Matrix<M, N, R> where [() ; M * N]
 			let mut c_d = 0;
 			for c_s in 0..N {
 				if c_s == col { continue; }
-				minor.flatmap[index!(M - 1, N, r_d, c_d)] = self.flatmap[index!(M, N, r_s, c_s)];
+				minor.flatmap[index!(M - 1, N, r_d, c_d)] = self.flatmap[index!(M, N, r_s, c_s)].clone();
 				c_d += 1;
 			}
 
@@ -272,7 +274,7 @@ impl<const M: usize, const N: usize, R: Ring> Add<Matrix<M, N, R>> for Matrix<M,
 impl<const M: usize, const N: usize, R: Ring> AddAssign<Matrix<M, N, R>> for Matrix<M, N, R> where [R ; M * N]: Sized {
 	fn add_assign(&mut self, rhs: Self) {
 		for i in 0..(M * N) {
-			self.flatmap[i] += rhs.flatmap[i]
+			self.flatmap[i] += rhs.flatmap[i].clone()
 		}
 	}
 }
@@ -284,7 +286,7 @@ impl<const M: usize, const N: usize, R: Ring> Sub<Matrix<M, N, R>> for Matrix<M,
 		let mut sum = Matrix::new();
 
 		for i in 0..(M * N) {
-			sum.flatmap[i] = self.flatmap[i] - rhs.flatmap[i]
+			sum.flatmap[i] = self.flatmap[i].clone() - rhs.flatmap[i].clone()
 		}
 
 		sum
@@ -294,7 +296,7 @@ impl<const M: usize, const N: usize, R: Ring> Sub<Matrix<M, N, R>> for Matrix<M,
 impl<const M: usize, const N: usize, R: Ring> SubAssign<Matrix<M, N, R>> for Matrix<M, N, R> where [R ; M * N]: Sized {
 	fn sub_assign(&mut self, rhs: Self) {
 		for i in 0..(M * N) {
-			self.flatmap[i] -= rhs.flatmap[i]
+			self.flatmap[i] -= rhs.flatmap[i].clone()
 		}
 	}
 }
@@ -332,7 +334,7 @@ impl<const M: usize, const N: usize, R: Ring> Mul<R> for Matrix<M, N, R> where [
 impl<const M: usize, const N: usize, R: Ring> MulAssign<R> for Matrix<M, N, R> where [R ; M * N]: Sized {
 	fn mul_assign(&mut self, rhs: R) {
 		for i in 0..(M * N) {
-			self.flatmap[i] *= rhs;
+			self.flatmap[i] *= rhs.clone();
 		}
 	}
 }
@@ -449,14 +451,14 @@ fn _ring_ref_rec<const M: usize, const N: usize, R: Ring>(matrix: &mut Matrix<M,
 	}
 
 
-	let pivot_entry = matrix.flatmap[index!(M, N, pivot_row, starting_col)];
+	let pivot_entry = matrix.flatmap[index!(M, N, pivot_row, starting_col)].clone();
         
 	for r in (pivot_row + 1)..M {
-		let entry = matrix.flatmap[index!(M, N, r, starting_col)];
+		let entry = matrix.flatmap[index!(M, N, r, starting_col)].clone();
 		if entry == R::zero() { continue; }
 		
-		matrix.scale_row(r, pivot_entry);
-		*scale_tracker *= pivot_entry;
+		matrix.scale_row(r, pivot_entry.clone());
+		*scale_tracker *= pivot_entry.clone();
 
 		matrix.add_scaled_row(-entry, pivot_row, r);
 	}
@@ -501,13 +503,13 @@ fn _field_ref_rec<const M: usize, const N: usize, F: Field>(matrix: &mut Matrix<
 	}
 
 
-	let pivot_entry = matrix.flatmap[index!(M, N, pivot_row, starting_col)];
+	let pivot_entry = matrix.flatmap[index!(M, N, pivot_row, starting_col)].clone();
         
 	for r in (pivot_row + 1)..M {
-		let entry = matrix.flatmap[index!(M, N, r, starting_col)];
+		let entry = matrix.flatmap[index!(M, N, r, starting_col)].clone();
 		if entry == F::zero() { continue; }
 
-		let scalar = -entry / pivot_entry;
+		let scalar = -entry / pivot_entry.clone();
 
 		matrix.add_scaled_row(scalar, pivot_row, r);
 	}
@@ -531,13 +533,13 @@ fn _rref_rec<const M: usize, const N: usize, F: Field>(matrix: &mut Matrix<M, N,
 		_rref_rec(matrix, pivots, starting_col + 1);
 	} else {
 		// normalize this row relative to the pivot
-		let pivot_entry = matrix.flatmap[index!(M, N, pivot_row, starting_col)];
+		let pivot_entry = matrix.flatmap[index!(M, N, pivot_row, starting_col)].clone();
 		matrix.scale_row(pivot_row, pivot_entry.inverse());
 
 		// eliminate other entries in this column above
 		for r in 0..pivot_row {
 
-			let entry = matrix.flatmap[index!(M, N, r, starting_col)];
+			let entry = matrix.flatmap[index!(M, N, r, starting_col)].clone();
 
 			if entry == F::zero() { continue; }
 
@@ -621,11 +623,11 @@ pub trait Det<R: Ring> {
  */
 fn _rec_cofactor_det<R: Ring>(flatmap: &[R], n: usize) -> R {
 	if n == 1 {
-		flatmap[0]
+		flatmap[0].clone()
 	}
 	else if n == 2 {
 		// just do simple formula for determinant, 2x2 matrices are pretty common
-		flatmap[index!(n, n, 0, 0)] * flatmap[index!(n, n, 1, 1)] - flatmap[index!(n, n, 1, 0)] * flatmap[index!(n, n, 0, 1)]
+		flatmap[index!(n, n, 0, 0)].clone() * flatmap[index!(n, n, 1, 1)].clone() - flatmap[index!(n, n, 1, 0)].clone() * flatmap[index!(n, n, 0, 1)].clone()
 	} else {
 		// we'll just do cofactor expansion along the first row
 		let mut determinant = R::zero();
@@ -636,12 +638,12 @@ fn _rec_cofactor_det<R: Ring>(flatmap: &[R], n: usize) -> R {
 			for c in 0..n {
 				if c == col { continue; }
 				for r in 1..n {
-					minor_vector.push(flatmap[index!(n, n, r, c)]);
+					minor_vector.push(flatmap[index!(n, n, r, c)].clone());
 				}
 			}
 
 			let sub_determinant = _rec_cofactor_det(minor_vector.as_mut_slice(), n - 1);
-			determinant += flatmap[index!(n, n, 0, col)] * (if col % 2 == 0 { sub_determinant } else { -sub_determinant });
+			determinant += flatmap[index!(n, n, 0, col)].clone() * (if col % 2 == 0 { sub_determinant } else { -sub_determinant });
 		}
 		determinant
 	}
@@ -664,7 +666,7 @@ impl<const N: usize, F: Field> Det<F> for Matrix<N, N, F> where [() ; N * N]: Si
 		let mut determinant = F::one();
 
 		for i in 0..N {
-			determinant *= self.flatmap[index!(N, N, i, i)];
+			determinant *= self.flatmap[index!(N, N, i, i)].clone();
 		}
 
 		if swap_count % 2 == 0 {
@@ -678,7 +680,7 @@ impl<const N: usize, F: Field> Det<F> for Matrix<N, N, F> where [() ; N * N]: Si
 // MARK: Vectors
 
 impl<const N: usize, R: Ring> InnerProductSpace<R> for Matrix<N, 1, R> where [() ; N * 1]: Sized {
-	fn inner_product(self, other: Self) -> R {
+	fn inner_product(&self, other: Self) -> R {
 		let mut prod = R::zero();
 		vec_dot_prod_ptr::<1, N, R>(&self.flatmap, 0, &other.flatmap, &mut prod);
 		prod
@@ -686,7 +688,9 @@ impl<const N: usize, R: Ring> InnerProductSpace<R> for Matrix<N, 1, R> where [()
 }
 
 impl<const N: usize> NormSpace for Matrix<N, 1, f64> where [() ; N * 1]: Sized {
-	fn norm(self) -> f64 {
-		f64::sqrt(self.inner_product(self))
+	type NormType = f64;
+
+	fn norm(&self) -> Self::NormType {
+		f64::sqrt(self.inner_product(self.clone()))
 	}
 }
