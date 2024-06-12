@@ -20,32 +20,32 @@ macro_rules! index {
 /// Computes the dot product between the r-th row of the matrix x, and the vector y.
 /// 
 /// * `M` - 
-fn vec_dot_prod_ptr<const M: usize, const N: usize, R: Ring>(x: &[R], r: usize, y: &[R], out: &mut R) {
+pub fn vec_dot_prod_ptr<const M: usize, const N: usize, R: Ring>(x: &[R], r: usize, y: &[R], out: &mut R) {
 	*out = R::zero();
 	for i in 0..N {
 		*out += x[index!(M, N, r, i)].clone() * y[i].clone()
 	}
 }
 
-fn mat_vec_mul_ptr<const M: usize, const N: usize, R: Ring>(a: &[R], vec: &[R], to_vec: &mut [R]) {
+pub fn mat_vec_mul_ptr<const M: usize, const N: usize, R: Ring>(a: &[R], vec: &[R], to_vec: &mut [R]) {
 	for r in 0..M {
 		vec_dot_prod_ptr::<M, N, R>(a, r, vec, &mut to_vec[r]);
 	}
 }
 
-fn mat_add<const M: usize, const N: usize, R: Ring>(a: &[R], b: &[R], out: &mut [R]) {
+pub fn mat_add<const M: usize, const N: usize, R: Ring>(a: &[R], b: &[R], out: &mut [R]) {
 	for i in 0..(M * N) {
 		out[i] = a[i].clone() + b[i].clone();
 	}
 }
 
-fn scalar_mul<const N: usize, R: Ring>(k: R, v: &[R], out: &mut [R]) {
+pub fn scalar_mul<const N: usize, R: Ring>(k: R, v: &[R], out: &mut [R]) {
 	for i in 0..N {
 		out[i] = k.clone() * v[i].clone();
 	}
 }
 
-fn mat_mul_ptrs<const M: usize, const K: usize, const N: usize, R: Ring>(a: &[R], b: &[R], out: &mut [R]) {
+pub fn mat_mul_ptrs<const M: usize, const K: usize, const N: usize, R: Ring>(a: &[R], b: &[R], out: &mut [R]) {
 	for c in 0..N {
 		mat_vec_mul_ptr::<M, K, R>(a, 
 			&b[index!(K, N, 0, c)..index!(K, N, K, c)], 
