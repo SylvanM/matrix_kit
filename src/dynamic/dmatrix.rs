@@ -1,4 +1,5 @@
 use std::cmp::min;
+use std::mem::ManuallyDrop;
 use std::ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 use std::usize;
 use algebra_kit::algebra::Ring;
@@ -73,6 +74,11 @@ impl<R: Ring> DMatrix<R> {
 		self.col_count
 	}
 
+	/// Returns a copy of the underlying vector of this matrix
+	pub fn as_vec(&self) -> Vec<R> {
+		self.flatmap.clone()
+	}
+
 	// MARK: Utility
 
 	/// Returns a copy of the entry at row `r` and column `c`
@@ -84,6 +90,123 @@ impl<R: Ring> DMatrix<R> {
 	pub fn set(&mut self, r: usize, c: usize, x: R) {
 		self.flatmap[index!(self.row_count, self.col_count, r, c)] = x;
 	} 
+
+	/// Appends a reference to a column to this matrix on the right
+	pub fn append_col_ref(&mut self, col: &mut Vec<R>) { 
+		assert_eq!(col.len(), self.row_count());
+
+		self.col_count += 1;
+		self.flatmap.append(col);
+	}
+
+	/// Appends a reference to a matrix to this matrix on the right
+	pub fn append_mat_right_ref(&mut self, mat: &mut DMatrix<R>) {
+		assert_eq!(self.row_count(), mat.row_count());
+
+		self.col_count += mat.col_count();
+		self.flatmap.append(&mut mat.flatmap);
+	}
+
+	/// Appends a column to this matrix on the right
+	pub fn append_col(&mut self, col: Vec<R>) {
+		assert_eq!(col.len(), self.row_count());
+		let mut new_flatmap = vec![R::zero() ; self.flatmap.len() + col.len()];
+		
+		for i in 0..self.flatmap.len() {
+			new_flatmap[i] = self.flatmap[i].clone();
+		}
+
+		for i in 0..col.len() {
+			new_flatmap[i + self.flatmap.len()] = col[i].clone();
+		}
+
+		self.col_count += 1;
+		self.flatmap = new_flatmap;
+	}
+
+	/// Appends a matrix to this matrix, on the right
+	pub fn append_mat_right(&mut self, mat: DMatrix<R>) {
+		assert_eq!(self.row_count(), mat.row_count());
+		let mut new_flatmap = vec![R::zero() ; self.flatmap.len() + mat.flatmap.len()];
+
+		for i in 0..self.flatmap.len() {
+			new_flatmap[i] = self.flatmap[i].clone();
+		}
+
+		for i in 0..mat.flatmap.len() {
+			new_flatmap[i + self.flatmap.len()] = mat.flatmap[i].clone();
+		}
+
+		self.col_count += mat.col_count();
+		self.flatmap = new_flatmap;
+	}
+
+	/// Appends a row to this matrix on the bottom
+	pub fn append_row(&mut self, row: Vec<R>) {
+		assert_eq!(row.len(), self.col_count());
+		let mut new_flatmap = vec![R::zero() ; self.flatmap.len() + row.len()];
+		
+		// Set the original values in the new flatmap!
+		for r in 0..self.row_count() {
+			for c in 0..self.col_count() {
+				new_flatmap[
+					index!(self.row_count() + 1, self.col_count(), r, c)
+				] = self.flatmap[
+					index!(self.row_count(), self.col_count(), r, c)
+				].clone();
+			}
+		}
+
+		// set the new row in the flatmap!
+		for c in 0..row.len() {
+			new_flatmap[
+				index!(
+					self.row_count() + 1, 
+					self.col_count(), 
+					self.row_count(), c
+				)
+			] = row[c].clone();
+		}
+
+		self.row_count += 1;
+		self.flatmap = new_flatmap;
+	}
+
+	/// Appends a matrix to this matrix, on the right
+	pub fn append_mat_bottom(&mut self, mat: DMatrix<R>) {
+		assert_eq!(self.col_count(), mat.col_count());
+		let mut new_flatmap = vec![R::zero() ; self.flatmap.len() + mat.flatmap.len()];
+
+		// Set the original values in the new flatmap!
+		for r in 0..self.row_count() {
+			for c in 0..self.col_count() {
+				new_flatmap[
+					index!(self.row_count() + mat.row_count(), self.col_count(), r, c)
+				] = self.flatmap[
+					index!(self.row_count(), self.col_count(), r, c)
+				].clone();
+			}
+		}
+
+		// Set the new rows!
+
+		for r in 0..mat.row_count() {
+			for c in 0..mat.col_count() {
+				new_flatmap[
+					index!(self.row_count() + mat.row_count(), self.col_count(), r, c)
+				] = self.flatmap[
+					index!(self.row_count(), self.col_count(), r + self.row_count(), c)
+				].clone();
+			}
+		}
+
+		for i in 0..mat.flatmap.len() {
+			new_flatmap[i + self.flatmap.len()] = mat.flatmap[i].clone();
+		}
+
+		self.col_count += mat.col_count();
+		self.flatmap = new_flatmap;
+	}
 
 }
 
