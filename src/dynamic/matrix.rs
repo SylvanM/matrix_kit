@@ -1,5 +1,4 @@
 use std::cmp::min;
-use std::mem::ManuallyDrop;
 use std::ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 use std::usize;
 use algebra_kit::algebra::Ring;
