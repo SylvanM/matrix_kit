@@ -15,29 +15,29 @@ use crate::dynamic::dynamic_vector_util::*;
 /// Data is stored column-wise, so adjacent elements of the
 /// flatmap vector are in the same column (modulo column breaks)
 #[derive(Clone)]
-pub struct DMatrix<R: Ring> {
+pub struct Matrix<R: Ring> {
 	flatmap: Vec<R>,
 	row_count: usize,
 	col_count: usize
 }
 
-impl<R: Ring> DMatrix<R> {
+impl<R: Ring> Matrix<R> {
 
 	// MARK: Constructors
 
 	/// Constructs a matrix from a flat vector
-	pub fn from_flatmap(rows: usize, cols: usize, flatmap: Vec<R>) -> DMatrix<R> {
-		DMatrix { flatmap, row_count: rows, col_count: cols }
+	pub fn from_flatmap(rows: usize, cols: usize, flatmap: Vec<R>) -> Matrix<R> {
+		Matrix { flatmap, row_count: rows, col_count: cols }
 	}
 
 	/// Constructs a matrix of all zeroes for a given dimension
-	pub fn new(rows: usize, cols: usize) -> DMatrix<R> {
-		DMatrix::from_flatmap(rows, cols, vec![R::zero() ; rows * cols])
+	pub fn new(rows: usize, cols: usize) -> Matrix<R> {
+		Matrix::from_flatmap(rows, cols, vec![R::zero() ; rows * cols])
 	}
 
 	/// Constructs the rows * cols identity matrix
-	pub fn identity(rows: usize, cols: usize) -> DMatrix<R> {
-		let mut mat = DMatrix::<R>::new(rows, cols);
+	pub fn identity(rows: usize, cols: usize) -> Matrix<R> {
+		let mut mat = Matrix::<R>::new(rows, cols);
 		let limiting_dimension = min(rows, cols);
 
 		for r in 0..limiting_dimension {
@@ -53,9 +53,9 @@ impl<R: Ring> DMatrix<R> {
 	pub fn from_index_def(
 		rows: usize,
 		cols: usize,
-		at_index: &dyn Fn(usize, usize) -> R) -> DMatrix<R> {
+		at_index: &dyn Fn(usize, usize) -> R) -> Matrix<R> {
 
-		DMatrix::from_flatmap(rows, cols, Vec::from_iter((0..rows * cols).map(|i|
+		Matrix::from_flatmap(rows, cols, Vec::from_iter((0..rows * cols).map(|i|
 			at_index(i / rows, i % rows)
 		)))
 	}
@@ -100,7 +100,7 @@ impl<R: Ring> DMatrix<R> {
 	}
 
 	/// Appends a reference to a matrix to this matrix on the right
-	pub fn append_mat_right_ref(&mut self, mat: &mut DMatrix<R>) {
+	pub fn append_mat_right_ref(&mut self, mat: &mut Matrix<R>) {
 		assert_eq!(self.row_count(), mat.row_count());
 
 		self.col_count += mat.col_count();
@@ -125,7 +125,7 @@ impl<R: Ring> DMatrix<R> {
 	}
 
 	/// Appends a matrix to this matrix, on the right
-	pub fn append_mat_right(&mut self, mat: DMatrix<R>) {
+	pub fn append_mat_right(&mut self, mat: Matrix<R>) {
 		assert_eq!(self.row_count(), mat.row_count());
 		let mut new_flatmap = vec![R::zero() ; self.flatmap.len() + mat.flatmap.len()];
 
@@ -173,7 +173,7 @@ impl<R: Ring> DMatrix<R> {
 	}
 
 	/// Appends a matrix to this matrix, on the right
-	pub fn append_mat_bottom(&mut self, mat: DMatrix<R>) {
+	pub fn append_mat_bottom(&mut self, mat: Matrix<R>) {
 		assert_eq!(self.col_count(), mat.col_count());
 		let mut new_flatmap = vec![R::zero() ; self.flatmap.len() + mat.flatmap.len()];
 
@@ -212,7 +212,7 @@ impl<R: Ring> DMatrix<R> {
 
 // MARK: Index
 
-impl<R: Ring> Index<usize> for DMatrix<R> {
+impl<R: Ring> Index<usize> for Matrix<R> {
 	type Output = [R];
 
 	/// Returns the column `index` as a slice
@@ -224,7 +224,7 @@ impl<R: Ring> Index<usize> for DMatrix<R> {
 	}
 }
 
-impl<R: Ring> IndexMut<usize> for DMatrix<R> {
+impl<R: Ring> IndexMut<usize> for Matrix<R> {
 
 	/// Returns a mutable reference to the column `index`
 	fn index_mut(&mut self, index: usize) -> &mut Self::Output {
@@ -237,12 +237,12 @@ impl<R: Ring> IndexMut<usize> for DMatrix<R> {
 
 // MARK: Random Constructors
 
-impl<R: Ring> DMatrix<R> where Standard: Distribution<R> {
+impl<R: Ring> Matrix<R> where Standard: Distribution<R> {
 
 	/// Constructs a random matrix
-	pub fn rand(rows: usize, cols: usize) -> DMatrix<R> {
+	pub fn rand(rows: usize, cols: usize) -> Matrix<R> {
 		let mut rng = rand::thread_rng();
-		DMatrix::from_flatmap(
+		Matrix::from_flatmap(
 			rows, cols, 
 			(0..rows * cols).map(
 				|_| rng.gen()
@@ -254,14 +254,14 @@ impl<R: Ring> DMatrix<R> where Standard: Distribution<R> {
 
 // MARK: Operations
 
-impl<R: Ring> Add for DMatrix<R> {
-	type Output = DMatrix<R>;
+impl<R: Ring> Add for Matrix<R> {
+	type Output = Matrix<R>;
 
-	fn add(self, rhs: DMatrix<R>) -> DMatrix<R> {
+	fn add(self, rhs: Matrix<R>) -> Matrix<R> {
 		assert_eq!(self.row_count, rhs.row_count);
 		assert_eq!(self.col_count, rhs.col_count);
 
-		let mut out = DMatrix::<R>::new(self.row_count, self.col_count);
+		let mut out = Matrix::<R>::new(self.row_count, self.col_count);
 		mat_add(self.row_count, self.col_count, 
 			&self.flatmap, &rhs.flatmap,
 			&mut out.flatmap
@@ -270,8 +270,8 @@ impl<R: Ring> Add for DMatrix<R> {
 	}
 }
 
-impl<R: Ring> AddAssign for DMatrix<R> {
-	fn add_assign(&mut self, rhs: DMatrix<R>) {
+impl<R: Ring> AddAssign for Matrix<R> {
+	fn add_assign(&mut self, rhs: Matrix<R>) {
 		assert_eq!(self.row_count, rhs.row_count);
 		assert_eq!(self.col_count, rhs.col_count);
 
@@ -281,14 +281,14 @@ impl<R: Ring> AddAssign for DMatrix<R> {
 	}
 }
 
-impl<R: Ring> Sub for DMatrix<R> {
-	type Output = DMatrix<R>;
+impl<R: Ring> Sub for Matrix<R> {
+	type Output = Matrix<R>;
 
-	fn sub(self, rhs: DMatrix<R>) -> DMatrix<R> {
+	fn sub(self, rhs: Matrix<R>) -> Matrix<R> {
 		assert_eq!(self.row_count, rhs.row_count);
 		assert_eq!(self.col_count, rhs.col_count);
 
-		let mut out = DMatrix::<R>::new(self.row_count, self.col_count);
+		let mut out = Matrix::<R>::new(self.row_count, self.col_count);
 		mat_sub(self.row_count, self.col_count, 
 			&self.flatmap, &rhs.flatmap, 
 			&mut out.flatmap
@@ -297,8 +297,8 @@ impl<R: Ring> Sub for DMatrix<R> {
 	}
 }
 
-impl<R: Ring> SubAssign for DMatrix<R> {
-	fn sub_assign(&mut self, rhs: DMatrix<R>) {
+impl<R: Ring> SubAssign for Matrix<R> {
+	fn sub_assign(&mut self, rhs: Matrix<R>) {
 		assert_eq!(self.row_count, rhs.row_count);
 		assert_eq!(self.col_count, rhs.col_count);
 
@@ -308,11 +308,11 @@ impl<R: Ring> SubAssign for DMatrix<R> {
 	}
 }
 
-impl<R: Ring> Mul<R> for DMatrix<R> {
-	type Output = DMatrix<R>;
+impl<R: Ring> Mul<R> for Matrix<R> {
+	type Output = Matrix<R>;
 
 	fn mul(self, rhs: R) -> Self::Output {
-		let mut out = DMatrix::<R>::new(self.row_count, self.col_count);
+		let mut out = Matrix::<R>::new(self.row_count, self.col_count);
 		scalar_mul(self.row_count * self.col_count, 
 			rhs, 
 			&self.flatmap, &mut out.flatmap
@@ -321,7 +321,7 @@ impl<R: Ring> Mul<R> for DMatrix<R> {
 	}
 }
 
-impl<R: Ring> MulAssign<R> for DMatrix<R> {
+impl<R: Ring> MulAssign<R> for Matrix<R> {
 	fn mul_assign(&mut self, rhs: R) {
 		scalar_mul_assign(self.row_count * self.col_count, 
 			rhs, &mut self.flatmap
@@ -329,13 +329,13 @@ impl<R: Ring> MulAssign<R> for DMatrix<R> {
 	}
 }
 
-impl<R: Ring> Mul<DMatrix<R>> for DMatrix<R> {
-	type Output = DMatrix<R>;
+impl<R: Ring> Mul<Matrix<R>> for Matrix<R> {
+	type Output = Matrix<R>;
 
-	fn mul(self, rhs: DMatrix<R>) -> Self::Output {
+	fn mul(self, rhs: Matrix<R>) -> Self::Output {
 		assert_eq!(self.col_count, rhs.row_count);
 
-		let mut out = DMatrix::<R>::new(self.row_count, rhs.col_count);
+		let mut out = Matrix::<R>::new(self.row_count, rhs.col_count);
 		mat_mul_ptrs::<R>(self.row_count, self.col_count, rhs.col_count, 
 			&self.flatmap, &rhs.flatmap, &mut out.flatmap
 		);
@@ -343,10 +343,10 @@ impl<R: Ring> Mul<DMatrix<R>> for DMatrix<R> {
 	}
 }
 
-impl<R: Ring> MulAssign<DMatrix<R>> for DMatrix<R> {
+impl<R: Ring> MulAssign<Matrix<R>> for Matrix<R> {
 
 	/// Performs in-place multiplication, only valid on square matrices
-	fn mul_assign(&mut self, rhs: DMatrix<R>) {
+	fn mul_assign(&mut self, rhs: Matrix<R>) {
 		assert_eq!(self.col_count, self.row_count); // Only on square matrices!
 		assert_eq!(self.col_count, rhs.col_count); // make sure the other matrix is chill
 		assert_eq!(self.row_count, rhs.row_count);
@@ -365,8 +365,8 @@ mod matrix_tests {
 
 	#[test]
 	fn test_add() {
-		let a = DMatrix::from_flatmap(2, 2, vec![1, 2, 3, 4]);
-		let b = DMatrix::from_flatmap(2, 2, vec![5, 6, 7, 8]);
+		let a = Matrix::from_flatmap(2, 2, vec![1, 2, 3, 4]);
+		let b = Matrix::from_flatmap(2, 2, vec![5, 6, 7, 8]);
 		let c = a + b;
 		assert_eq!(c.flatmap, vec![6, 8, 10, 12]);
 	}
