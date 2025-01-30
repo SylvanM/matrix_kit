@@ -262,6 +262,8 @@ impl<R: Ring> Debug for Matrix<R> {
 			}
 
 			this_line.push("]".to_string());
+
+			lines.push(this_line.join(""));
 			
 		} else {
 			for r in 0..m {
