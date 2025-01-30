@@ -1,6 +1,6 @@
 use std::cmp::min;
 use std::ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
-use std::usize;
+use std::{clone, usize};
 use algebra_kit::algebra::Ring;
 use rand::Rng;
 use rand::distributions::{Distribution, Standard};
@@ -205,6 +205,25 @@ impl<R: Ring> Matrix<R> {
 
 		self.col_count += mat.col_count();
 		self.flatmap = new_flatmap;
+	}
+
+	// MARK: Utility
+
+	/// Applies a function to all entries in this matrix, returning the result 
+	/// as a separate matrix
+	pub fn applying_to_all<J: Ring>(&self, f: &dyn Fn(R) -> J) -> Matrix<J> {
+		Matrix { 
+			flatmap: self.flatmap.iter().map(|x| f(x.clone())).collect(), 
+			row_count: self.row_count(), 
+			col_count: self.col_count() 
+		}
+	}
+
+	/// Applies a function to all entries in this matrix, in place
+	pub fn apply_to_all(&mut self, f: &dyn Fn(R) -> R) {
+		for i in 0..self.flatmap.len() {
+			self.flatmap[i] = f(self.flatmap[i].clone())
+		}
 	}
 
 }
