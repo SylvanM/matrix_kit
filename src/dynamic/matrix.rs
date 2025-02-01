@@ -253,7 +253,7 @@ impl<R: Ring> Debug for Matrix<R> {
 
 			let mut this_line = Vec::<String>::new();
 
-			this_line.push("[".to_string());
+			this_line.push("[ ".to_string());
 
 			for c in 0..n {
 				let this_entry_str = format!("{:?}", self.flatmap[index!(m, n, 0, c)]);
@@ -341,6 +341,16 @@ impl<R: Ring> Matrix<R> where Standard: Distribution<R> {
 	}
 
 }
+
+
+// MARK: Comparison
+
+impl<R: Ring> PartialEq for Matrix<R> {
+	fn eq(&self, other: &Self) -> bool {
+		self.row_count == other.row_count && self.col_count == other.col_count && self.flatmap == other.flatmap
+	}
+}
+
 
 // MARK: Operations
 
