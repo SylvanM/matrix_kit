@@ -9,5 +9,5 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-algebra_kit = "0.1.10"
+algebra_kit = "0.1.11"
 rand = "0.8.5"
