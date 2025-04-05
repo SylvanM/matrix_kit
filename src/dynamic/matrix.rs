@@ -53,7 +53,7 @@ impl<R: Ring> Matrix<R> {
 	pub fn from_index_def(
 		rows: usize,
 		cols: usize,
-		at_index: &dyn Fn(usize, usize) -> R) -> Matrix<R> {
+		at_index: &mut dyn FnMut(usize, usize) -> R) -> Matrix<R> {
 
 		Matrix::from_flatmap(rows, cols, Vec::from_iter((0..rows * cols).map(|i|
 			at_index(i / rows, i % rows)
