@@ -227,6 +227,11 @@ impl<R: Ring> Matrix<R> {
 		}
 	}
 
+	/// The transpose of this matrix 
+	pub fn transpose(&self) -> Matrix<R> {
+		Matrix::from_index_def(self.col_count(), self.row_count, &mut |r, c| self.get(c, r))
+	}
+
 	// MARK: Math
 
 	/// Computes the point-wise product of this and another matrix of the same 
