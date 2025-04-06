@@ -236,15 +236,15 @@ impl<R: Ring> Matrix<R> {
 
 	/// Computes the point-wise product of this and another matrix of the same 
 	/// dimension
-	pub fn hadamard(&mut self, other: Matrix<R>) -> Matrix<R> {
+	pub fn hadamard(&self, other: Matrix<R>) -> Matrix<R> {
 
 		debug_assert_eq!(self.col_count(), other.col_count());
 		debug_assert_eq!(self.row_count(), other.row_count());
 
-		let hada = self.clone();
+		let mut hada = self.clone();
 
 		for i in 0..(self.flatmap.len()) { 
-			self.flatmap[i] *= other.flatmap[i].clone()
+			hada.flatmap[i] *= other.flatmap[i].clone()
 		}
 
 		hada
