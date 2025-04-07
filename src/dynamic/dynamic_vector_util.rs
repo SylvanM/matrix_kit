@@ -68,6 +68,20 @@ pub fn scalar_mul_assign<R: Ring>(n: usize, k: R, v: &mut [R]) {
 	}
 }
 
+/// Scales a vector v by 1/k
+pub fn scalar_div<F: Field>(n: usize, k: F, v: &[F], out: &mut [F]) {
+	for i in 0..n {
+		out[i] = v[i].clone() / k.clone();
+	}
+}
+
+/// Scales a vector v by 1/k, in place
+pub fn scalar_div_assign<F: Field>(n: usize, k: F, v: &mut [F]) {
+	for i in 0..n {
+		v[i] /= k.clone();
+	}
+}
+
 /// Computes the product of an m*k matrix and a k*n matrix
 pub fn mat_mul_ptrs<R: Ring>(m: usize, k: usize, n: usize, a: &[R], b: &[R], out: &mut [R]) {
 	for c in 0..n {

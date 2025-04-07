@@ -1,8 +1,8 @@
 use std::cmp::min;
 use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 use std::usize;
-use algebra_kit::algebra::Ring;
+use algebra_kit::algebra::{Field, Ring};
 use rand::Rng;
 use rand::distributions::{Distribution, Standard};
 use crate::index;
@@ -458,6 +458,27 @@ impl<R: Ring> Mul<R> for Matrix<R> {
 impl<R: Ring> MulAssign<R> for Matrix<R> {
 	fn mul_assign(&mut self, rhs: R) {
 		scalar_mul_assign(self.row_count * self.col_count, 
+			rhs, &mut self.flatmap
+		);
+	}
+}
+
+impl<F: Field> Div<F> for Matrix<F> {
+	type Output = Matrix<F>;
+
+	fn div(self, rhs: F) -> Matrix<F> {
+		let mut out = Matrix::<F>::new(self.row_count, self.col_count);
+		scalar_div(self.row_count * self.col_count, 
+			rhs, 
+			&self.flatmap, &mut out.flatmap
+		);
+		out
+	}
+}
+
+impl<F: Field> DivAssign<F> for Matrix<F> {
+	fn div_assign(&mut self, rhs: F) {
+		scalar_div_assign(self.row_count * self.col_count, 
 			rhs, &mut self.flatmap
 		);
 	}
