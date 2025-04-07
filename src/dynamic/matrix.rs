@@ -55,8 +55,10 @@ impl<R: Ring> Matrix<R> {
 		cols: usize,
 		at_index: &mut dyn FnMut(usize, usize) -> R) -> Matrix<R> {
 
-		Matrix::from_flatmap(rows, cols, Vec::from_iter((0..rows * cols).map(|i|
-			at_index(i / rows, i % rows)
+		println!("Creating a {} x {} matrix", rows, cols);
+
+		Matrix::from_flatmap(rows, cols, Vec::from_iter((0..(rows * cols)).map(|i|
+			at_index(i % rows, i / rows)
 		)))
 	}
 
@@ -83,6 +85,7 @@ impl<R: Ring> Matrix<R> {
 
 	/// Returns a copy of the entry at row `r` and column `c`
 	pub fn get(&self, r: usize, c: usize) -> R {
+		println!("Accessing self[{}, {}]", r, c);
 		self.flatmap[index!(self.row_count, self.col_count, r, c)].clone()
 	}
 
@@ -524,6 +527,21 @@ mod matrix_tests {
 		let b = Matrix::from_flatmap(2, 2, vec![5, 6, 7, 8]);
 		let c = a + b;
 		assert_eq!(c.flatmap, vec![6, 8, 10, 12]);
+	}
+
+	#[test]
+	fn test_transpose() {
+		let a = Matrix::from_flatmap(16, 1, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+		println!("{:?}", a.transpose());
+	}
+
+	#[test]
+	fn test_index_def() {
+		let a = Matrix::from_index_def(10, 9, &mut {|r, c|
+			if r == c { 1 } else {0}
+		} );
+
+		println!("{:?}", a.transpose());
 	}
 
 }
