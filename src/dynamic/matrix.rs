@@ -234,6 +234,17 @@ impl<R: Ring> Matrix<R> {
 
 	// MARK: Math
 
+	/// The squared L2 norm of this vector
+	pub fn l2_norm_squared(&self) -> R {
+		let mut squared_norm = R::zero();
+
+		for r in self.flatmap.clone() {
+			squared_norm += r.power(2);
+		}
+
+		squared_norm
+	}
+
 	/// Computes the point-wise product of this and another matrix of the same 
 	/// dimension
 	pub fn hadamard(&self, other: Matrix<R>) -> Matrix<R> {
