@@ -55,8 +55,6 @@ impl<R: Ring> Matrix<R> {
 		cols: usize,
 		at_index: &mut dyn FnMut(usize, usize) -> R) -> Matrix<R> {
 
-		println!("Creating a {} x {} matrix", rows, cols);
-
 		Matrix::from_flatmap(rows, cols, Vec::from_iter((0..(rows * cols)).map(|i|
 			at_index(i % rows, i / rows)
 		)))
@@ -85,7 +83,6 @@ impl<R: Ring> Matrix<R> {
 
 	/// Returns a copy of the entry at row `r` and column `c`
 	pub fn get(&self, r: usize, c: usize) -> R {
-		println!("Accessing self[{}, {}]", r, c);
 		self.flatmap[index!(self.row_count, self.col_count, r, c)].clone()
 	}
 
@@ -491,7 +488,7 @@ impl<R: Ring> Mul<Matrix<R>> for Matrix<R> {
 	type Output = Matrix<R>;
 
 	fn mul(self, rhs: Matrix<R>) -> Self::Output {
-		assert_eq!(self.col_count, rhs.row_count);
+		assert_eq!(self.col_count, rhs.row_count, "Attempting to multiply a {} x {} matrix with a {} x {} matrix.", self.row_count(), self.col_count(), rhs.row_count(), rhs.col_count());
 
 		let mut out = Matrix::<R>::new(self.row_count, rhs.col_count);
 		mat_mul_ptrs::<R>(self.row_count, self.col_count, rhs.col_count, 
