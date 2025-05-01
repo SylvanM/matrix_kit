@@ -1,8 +1,9 @@
 use std::cmp::min;
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
-use std::usize;
+use std::{usize, vec};
 use algebra_kit::algebra::{Field, Ring};
+use rand::seq::index;
 use rand::Rng;
 use rand::distributions::{Distribution, Standard};
 use crate::index;
@@ -19,6 +20,13 @@ pub struct Matrix<R: Ring> {
 	flatmap: Vec<R>,
 	row_count: usize,
 	col_count: usize
+}
+
+#[macro_export]
+macro_rules! compatible_vectors {
+	($a: expr, $b: expr) => {
+		$a.is_vector() && $b.is_vector() && ($a.row_count() == $b.row_count())
+	};
 }
 
 impl<R: Ring> Matrix<R> {
@@ -60,7 +68,30 @@ impl<R: Ring> Matrix<R> {
 		)))
 	}
 
+	/// Constructs a matrix with the given columns
+	pub fn from_cols(columns: Vec<Matrix<R>>) -> Matrix<R> {
+		let m = columns[0].row_count();
+		// Make sure they are all vectors of the same size
+		debug_assert!(columns.iter().map(|c| c.is_vector()).reduce(|acc, e| acc && e).unwrap());
+		debug_assert!(columns.iter().map(|c| c.row_count() == m).reduce(|acc, e| acc && e).unwrap());
+
+		let mut flatmap = vec![R::zero() ; columns.len() * m];
+
+		for c in 0..columns.len() {
+			for r in 0..m {
+				flatmap[index!(m, columns.len(), r, c)] = columns[c].get(r, 0);
+			}
+		}
+
+		Matrix { flatmap, row_count: m, col_count: columns.len() }
+	}
+
 	// MARK: Properties
+
+	/// Returns whether or not this is a square matrix
+	pub fn is_square(&self) -> bool {
+		self.row_count() == self.col_count()
+	}
 
 	/// The amount of rows in this matrix
 	#[inline]
@@ -80,6 +111,43 @@ impl<R: Ring> Matrix<R> {
 	}
 
 	// MARK: Utility
+
+	/// Returns the columns of this matrix
+	pub fn columns(&self) -> Vec<Matrix<R>> {
+		(0..self.col_count()).into_iter().map(|c| 
+			Matrix::from_flatmap(self.row_count(), 1, self.flatmap[
+				index!(self.row_count(), self.col_count(), 0, c)..index!(self.row_count(), self.col_count(), self.row_count(), c)
+			].to_vec())
+		).collect()
+	}
+
+	/// Returns true if this matrix is the identity matrix
+	pub fn is_identity(&self) -> bool {
+		for r in 0..self.row_count() {
+			for c in 0..self.col_count() {
+				if r == c {
+					if self.get(r, c) != R::one() {
+						return false;
+					}
+					else if self.get(r, c) != R::zero() {
+						return false;
+					}
+				}
+			}
+		}
+
+		return true;
+	}
+
+	/// Returns `true` if this matrix is really just a column vector
+	pub fn is_vector(&self) -> bool {
+		self.col_count() == 1
+	}
+
+	/// Returns whether or not this is a row vector
+	pub fn is_row_vector(&self) -> bool {
+		self.row_count() == 1
+	}
 
 	/// Returns a copy of the entry at row `r` and column `c`
 	pub fn get(&self, r: usize, c: usize) -> R {
@@ -234,15 +302,27 @@ impl<R: Ring> Matrix<R> {
 
 	// MARK: Math
 
-	/// The squared L2 norm of this vector
-	pub fn l2_norm_squared(&self) -> R {
-		let mut squared_norm = R::zero();
+	/// Computes the inner-product of this vector with another vector
+	/// 
+	/// This operates in the entries in the flatmap of each matrix, so if 
+	/// the argument to this function are not proper vectors (i.e., they 
+	/// are matrices with both dimensions greater than 1) then the behavior
+	/// here is not well-defined
+	pub fn inner_product(&self, other: &Matrix<R>) -> R {
+		debug_assert_eq!(self.flatmap.len(), other.flatmap.len());
 
-		for r in self.flatmap.clone() {
-			squared_norm += r.power(2);
+		let mut inner_product = R::zero();
+
+		for i in 0..self.flatmap.len() {
+			inner_product += self.flatmap[i].clone() * other.flatmap[i].clone();
 		}
 
-		squared_norm
+		inner_product
+	}
+
+	/// The squared L2 norm of this vector
+	pub fn l2_norm_squared(&self) -> R {
+		self.inner_product(self)
 	}
 
 	/// Computes the point-wise product of this and another matrix of the same 
@@ -539,6 +619,164 @@ mod matrix_tests {
 		} );
 
 		println!("{:?}", a.transpose());
+	}
+
+}
+
+
+
+// MARK: Matrices over Fields
+
+impl<F: Field> Matrix<F> {
+
+	/// Returns whether or not two vectors are orthogonal
+	pub fn is_orthogonal_to(&self, other: Matrix<F>) -> bool {
+		debug_assert!(compatible_vectors!(self, other));
+		self.inner_product(&other) == F::zero()
+	}
+
+	/// Returns whether or not a matrix is orthogonal (meaning its columns 
+	/// are each orthogonal and of unit length)
+	pub fn is_orthogonal(&self) -> bool {
+		(self.transpose() * self.clone()).is_identity()
+	}
+
+	/// Projects this vector onto another vector
+	pub fn proj_onto(&self, other: Matrix<F>) -> Matrix<F> {
+		debug_assert!(compatible_vectors!(self, other));
+		let scalar = other.inner_product(self) / other.inner_product(&other);
+		other * scalar
+	}
+
+	/// Performs Gram-Schmidt Orthogonalization on a matrix, returning a
+	/// matrix whose columns are orthogonal, and span the same column space 
+	/// as the original matrix. This does NOT normalize the GS vectors.
+	pub fn gram_schmidt(&self) -> Matrix<F> {
+		let v = self.columns();
+
+		let mut u = v.clone();
+
+		// The first GS vector is just the normalized regular guy
+		u[0] = v[0].clone();
+
+		for k in 1..u.len() {
+				u[k] = v[k].clone();
+			for i in 0..k {
+				u[k] = u[k].clone() - u[k].proj_onto(u[i].clone())
+			}
+		}
+
+		Matrix::from_cols(u)
+	}
+
+}
+
+// MARK: Linear Algebra over the Reals
+
+impl Matrix<f64> {
+
+	/// Normalizes this vector
+	pub fn normalize(&mut self) {
+		debug_assert!(self.is_vector());
+		*self /= self.l2_norm_squared().sqrt();
+	}
+
+	/// Returns the normalized version of this vector
+	pub fn normalized(&self) -> Matrix<f64> {
+		debug_assert!(self.is_vector());
+		let mut unit = self.clone();
+		unit.normalize();
+		unit
+	}
+
+	/// Returns the QR-decomposition of this matrix using Gram-Schmidt
+	/// orthogonalization
+	pub fn qr_decomp(&self) -> (Matrix<f64>, Matrix<f64>) {
+		debug_assert!(self.is_square());
+
+		let e: Vec<Matrix<f64>> = self.gram_schmidt().columns()
+									.iter().map(|u| u.normalized()).collect();
+		let a = self.columns();
+		
+		let q = Matrix::from_cols(e.clone());
+		let r = Matrix::from_index_def(self.row_count(), self.col_count(), &mut |r, c| if r > c { 
+			0.0 
+		} else {
+			e[r].inner_product(&a[c])
+		});
+
+		(q, r)
+	}
+
+	/// Performs the QR algorithm to find a matrices real eigenvalues and 
+	/// eigenvectors
+	pub fn qr_algorithm(&self, max_iterations: usize) -> (Vec<f64>, Vec<Matrix<f64>>) {
+		debug_assert!(self.is_square());
+		let mut a = self.clone();
+		let mut q_accum = Matrix::identity(a.row_count(), a.col_count());
+
+		for k in 0..max_iterations {
+			let (q, r) = a.qr_decomp();
+			a = r * q.clone();
+			q_accum = q * q_accum;
+			
+			// Normalize all columns of q_accum for numerical stability's sake
+			q_accum = Matrix::from_cols(q_accum.columns().iter().map(|c| c.normalized()).collect());
+
+		}
+
+		// Now read off eigenvalues
+		let evals: Vec<f64> = (0..a.row_count()).map(|i| a.get(i, i)).collect();
+
+		let evecs = q_accum.columns();
+
+		(evals, evecs)
+
+	}
+
+	/// Computes SVD on an arbitrary matrix, returning a list of the right 
+	/// singular values of A, and a list of the right singular vectors of A
+	pub fn svd(&self) -> (Vec<f64>, Vec<Matrix<f64>>) {
+		let (evals, evecs) = (self.transpose() * self.clone()).qr_algorithm(100);
+		(evals.iter().map(|sigma| sigma.sqrt()).collect(), evecs)
+	}
+}
+
+#[cfg(test)]
+mod real_matrix_tests {
+    use rand::Rng;
+
+    use super::Matrix;
+
+
+	#[test]
+	pub fn qr_decomp() {
+		let mut rng = rand::thread_rng();
+		let a = Matrix::from_index_def(4, 4, &mut |_, _| rng.gen_range(-10.0..=10.0));
+		println!("A: {:?}", a);
+		let (q, r) = a.qr_decomp();
+		println!("Q: {:?}", q);
+		println!("R: {:?}", r);
+		println!("Q^T Q: {:?}", q.clone() * q.transpose());
+		println!("QR: {:?}", q * r);
+	}
+
+	#[test]
+	pub fn find_eigens() {
+		let mut rng = rand::thread_rng();
+		let a = Matrix::from_index_def(2, 2, &mut |_, _| rng.gen_range(-10.0..=10.0));
+		let symmetric = a.transpose() * a;
+
+		let (evals, evecs) = symmetric.qr_algorithm(10000);
+
+		let evec = evecs[0].clone();
+		let lambda = evals[0];
+
+		println!("A, {:?}\n", symmetric);
+		println!("lambda = {}\n", lambda);
+		println!("x = {:?}\n", evec);
+		println!("A * x = {:?}\n", symmetric * evec.clone());
+		println!("lambda * x = {:?}\n", evec * lambda);
 	}
 
 }
