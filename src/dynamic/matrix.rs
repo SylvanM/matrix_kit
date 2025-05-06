@@ -3,9 +3,7 @@ use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
 use std::{usize, vec};
 use algebra_kit::algebra::{Field, Ring};
-use rand::seq::index;
-use rand::Rng;
-use rand::distributions::{Distribution, Standard};
+use rand_distr::Distribution;
 use crate::index;
 use crate::dynamic::dynamic_vector_util::*;
 
@@ -439,24 +437,6 @@ impl<R: Ring> IndexMut<usize> for Matrix<R> {
 	}
 }
 
-// MARK: Random Constructors
-
-impl<R: Ring> Matrix<R> where Standard: Distribution<R> {
-
-	/// Constructs a random matrix
-	pub fn rand(rows: usize, cols: usize) -> Matrix<R> {
-		let mut rng = rand::thread_rng();
-		Matrix::from_flatmap(
-			rows, cols, 
-			(0..rows * cols).map(
-				|_| rng.gen()
-			).collect()
-		)
-	}
-
-}
-
-
 // MARK: Comparison
 
 impl<R: Ring> PartialEq for Matrix<R> {
@@ -675,6 +655,17 @@ impl<F: Field> Matrix<F> {
 
 impl Matrix<f64> {
 
+	// MARK: Matrix Initialization
+
+	/// Constructs a random matrix with gaussianly distributed entries
+    pub fn random_normal(rows: usize, cols: usize, mean: f64, variance: f64) -> Matrix<f64> {
+        let mut rand_gen = rand::rng();
+        let normal = rand_distr::Normal::new(mean, variance).unwrap();
+		Matrix::from_index_def(rows, cols, &mut |_, _| normal.sample(&mut rand_gen))
+    }
+
+	// MARK: Vector utility
+
 	/// Normalizes this vector
 	pub fn normalize(&mut self) {
 		debug_assert!(self.is_vector());
@@ -688,6 +679,8 @@ impl Matrix<f64> {
 		unit.normalize();
 		unit
 	}
+
+	// MARK: Mathematical Algorithms
 
 	/// Returns the QR-decomposition of this matrix using Gram-Schmidt
 	/// orthogonalization
@@ -715,7 +708,7 @@ impl Matrix<f64> {
 		let mut a = self.clone();
 		let mut q_accum = Matrix::identity(a.row_count(), a.col_count());
 
-		for k in 0..max_iterations {
+		for _ in 0..max_iterations {
 			let (q, r) = a.qr_decomp();
 			a = r * q.clone();
 			q_accum = q * q_accum;
@@ -751,8 +744,8 @@ mod real_matrix_tests {
 
 	#[test]
 	pub fn qr_decomp() {
-		let mut rng = rand::thread_rng();
-		let a = Matrix::from_index_def(4, 4, &mut |_, _| rng.gen_range(-10.0..=10.0));
+		let mut rng = rand::rng();
+		let a = Matrix::from_index_def(4, 4, &mut |_, _| rng.random_range(-10.0..=10.0));
 		println!("A: {:?}", a);
 		let (q, r) = a.qr_decomp();
 		println!("Q: {:?}", q);
@@ -763,8 +756,7 @@ mod real_matrix_tests {
 
 	#[test]
 	pub fn find_eigens() {
-		let mut rng = rand::thread_rng();
-		let a = Matrix::from_index_def(2, 2, &mut |_, _| rng.gen_range(-10.0..=10.0));
+		let a = Matrix::random_normal(2, 2, 0.0, 0.5);
 		let symmetric = a.transpose() * a;
 
 		let (evals, evecs) = symmetric.qr_algorithm(10000);
