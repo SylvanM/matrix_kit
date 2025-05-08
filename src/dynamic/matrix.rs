@@ -680,4 +680,15 @@ impl Matrix<f64> {
 		unit
 	}
 
+	/// Returns the angle of this 2D vector with the x-axis
+	pub fn angle(&self) -> f64 {
+		debug_assert!(self.is_vector());
+		debug_assert_eq!(self.row_count(), 2);
+
+		let x = self.get(0, 0);
+		let y = self.get(1, 0);
+
+		y.atan2(x)
+	}
+
 }
