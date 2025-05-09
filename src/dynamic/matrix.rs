@@ -277,40 +277,24 @@ impl<R: Ring> Matrix<R> {
 		self.flatmap = new_flatmap;
 	}
 
-	/// Appends a matrix to this matrix, on the right
+	/// Appends a matrix to this matrix, on the bottom
 	pub fn append_mat_bottom(&mut self, mat: Matrix<R>) {
-		assert_eq!(self.col_count(), mat.col_count());
-		let mut new_flatmap = vec![R::zero() ; self.flatmap.len() + mat.flatmap.len()];
+		debug_assert_eq!(self.col_count(), mat.col_count());
 
-		// Set the original values in the new flatmap!
-		for r in 0..self.row_count() {
-			for c in 0..self.col_count() {
-				new_flatmap[
-					index!(self.row_count() + mat.row_count(), self.col_count(), r, c)
-				] = self.flatmap[
-					index!(self.row_count(), self.col_count(), r, c)
-				].clone();
+		let original = self.clone();
+		*self = Matrix::new(self.row_count() + mat.row_count(), self.col_count());
+
+		for r in 0..original.row_count() {
+			for c in 0..original.col_count() {
+				self.set(r, c, original.get(r, c));
 			}
 		}
-
-		// Set the new rows!
 
 		for r in 0..mat.row_count() {
 			for c in 0..mat.col_count() {
-				new_flatmap[
-					index!(self.row_count() + mat.row_count(), self.col_count(), r, c)
-				] = self.flatmap[
-					index!(self.row_count(), self.col_count(), r + self.row_count(), c)
-				].clone();
+				self.set(original.row_count() + r, c, mat.get(r, c));
 			}
 		}
-
-		for i in 0..mat.flatmap.len() {
-			new_flatmap[i + self.flatmap.len()] = mat.flatmap[i].clone();
-		}
-
-		self.col_count += mat.col_count();
-		self.flatmap = new_flatmap;
 	}
 
 	// MARK: Utility
