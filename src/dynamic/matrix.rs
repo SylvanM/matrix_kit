@@ -43,13 +43,11 @@ impl<R: Ring> Matrix<R> {
 
 	/// Constructs the rows * cols identity matrix
 	pub fn identity(rows: usize, cols: usize) -> Matrix<R> {
-		let mut mat = Matrix::<R>::new(rows, cols);
+		let mut mat = Matrix::new(rows, cols);
 		let limiting_dimension = min(rows, cols);
 
-		for r in 0..limiting_dimension {
-			for c in 0..limiting_dimension {
-				mat.flatmap[index!(rows, cols, r, c)] = R::one();
-			}
+		for i in 0..limiting_dimension {
+			mat.set(i, i, R::one());
 		}
 
 		mat
