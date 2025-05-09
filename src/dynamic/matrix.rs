@@ -56,7 +56,7 @@ impl<R: Ring> Matrix<R> {
 	}
 
 	/// Creates a diagonal matrix from a given diagonal
-	pub fn diag(diagonal: Vec<R>) -> Matrix<R> {
+	pub fn from_diagonal(diagonal: Vec<R>) -> Matrix<R> {
 		Matrix::from_index_def(diagonal.len(), diagonal.len(), &mut |r, c| if r == c {
 			diagonal[r].clone()
 		} else {
@@ -64,8 +64,8 @@ impl<R: Ring> Matrix<R> {
 		})
 	}
 
-	/// Creates a bidiagonal matrix from a diagonal and superdiagonal
-	pub fn bidiag(diagonal: Vec<R>, superdiagonal: Vec<R>) -> Matrix<R> {
+	/// Creates an upper bidiagonal matrix from a diagonal and superdiagonal
+	pub fn from_bidiagonal(diagonal: Vec<R>, superdiagonal: Vec<R>) -> Matrix<R> {
 		debug_assert_eq!(diagonal.len(), superdiagonal.len() + 1);
 		Matrix::from_index_def(diagonal.len(), diagonal.len(), &mut |r, c| if r == c {
 			diagonal[r].clone()
@@ -106,6 +106,24 @@ impl<R: Ring> Matrix<R> {
 	}
 
 	// MARK: Properties
+
+	/// Returns the diagonal of this matrix as a list
+	pub fn get_diagonal(&self) -> Vec<R> {
+		let mut diagonal = vec![R::zero() ; min(self.row_count(), self.col_count())];
+		for i in 0..diagonal.len() {
+			diagonal[i] = self.get(i, i)
+		}
+		diagonal
+	}
+
+	/// Returns the upper diagonal of this matrix as a list
+	pub fn get_upperdiagonal(&self) -> Vec<R> {
+		let mut upper_diagonal = vec![R::zero() ; min(self.row_count(), self.col_count()) - 1];
+		for i in 0..upper_diagonal.len() {
+			upper_diagonal[i] = self.get(i, i + 1)
+		}
+		upper_diagonal
+	}
 
 	/// Returns whether or not this is a square matrix
 	pub fn is_square(&self) -> bool {
