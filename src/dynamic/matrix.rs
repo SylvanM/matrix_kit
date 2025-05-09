@@ -69,7 +69,7 @@ impl<R: Ring> Matrix<R> {
 		debug_assert_eq!(diagonal.len(), superdiagonal.len() + 1);
 		Matrix::from_index_def(diagonal.len(), diagonal.len(), &mut |r, c| if r == c {
 			diagonal[r].clone()
-		} else if r == c - 1 {
+		} else if c > 0 && r == c - 1 {
 			superdiagonal[r].clone()
 		} else {
 			R::zero()
