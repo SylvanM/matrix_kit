@@ -1,6 +1,6 @@
 use std::cmp::min;
 use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Range, Sub, SubAssign};
 use std::{usize, vec};
 use algebra_kit::algebra::{Field, Ring};
 use rand_distr::Distribution;
@@ -335,6 +335,33 @@ impl<R: Ring> Matrix<R> {
 	/// The transpose of this matrix 
 	pub fn transpose(&self) -> Matrix<R> {
 		Matrix::from_index_def(self.col_count(), self.row_count, &mut |r, c| self.get(c, r))
+	}
+
+	/// Accesses a sub-matrix of this matrix
+	pub fn get_submatrix(&self, row_range: Range<usize>, col_range: Range<usize>) -> Matrix<R> {
+		let mut submat = Matrix::new(row_range.len(), col_range.len());
+
+		for r in row_range.clone() {
+			for c in col_range.clone() {
+				submat.set(r - row_range.start, c - col_range.start, 
+					self.get(r, c));
+			}
+		}
+
+		submat
+	}
+
+	/// Writes to a sub-matrix of this matrix
+	pub fn set_submatrix(&mut self, row_range: Range<usize>, col_range: Range<usize>, submat: Matrix<R>) {
+		debug_assert_eq!(row_range.len(), submat.row_count());
+		debug_assert_eq!(col_range.len(), submat.col_count());
+
+		for r in row_range.clone() {
+			for c in col_range.clone() {
+				self.set(r, c,
+					submat.get(r - row_range.start, c - col_range.start));
+			}
+		}
 	}
 
 	// MARK: Math
