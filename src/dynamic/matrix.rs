@@ -55,6 +55,27 @@ impl<R: Ring> Matrix<R> {
 		mat
 	}
 
+	/// Creates a diagonal matrix from a given diagonal
+	pub fn diag(diagonal: Vec<R>) -> Matrix<R> {
+		Matrix::from_index_def(diagonal.len(), diagonal.len(), &mut |r, c| if r == c {
+			diagonal[r].clone()
+		} else {
+			R::zero()
+		})
+	}
+
+	/// Creates a bidiagonal matrix from a diagonal and superdiagonal
+	pub fn bidiag(diagonal: Vec<R>, superdiagonal: Vec<R>) -> Matrix<R> {
+		debug_assert_eq!(diagonal.len(), superdiagonal.len() + 1);
+		Matrix::from_index_def(diagonal.len(), diagonal.len(), &mut |r, c| if r == c {
+			diagonal[r].clone()
+		} else if r == c - 1 {
+			superdiagonal[r].clone()
+		} else {
+			R::zero()
+		})
+	}
+
 	/// Constructs a matrix defined index-wise
 	pub fn from_index_def(
 		rows: usize,
