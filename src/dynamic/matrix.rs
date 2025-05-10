@@ -62,6 +62,29 @@ impl<R: Ring> Matrix<R> {
 		})
 	}
 
+	/// Creates a block-diagonal matrix from square blocks
+	pub fn from_block_diagonal(blocks: Vec<Matrix<R>>) -> Matrix<R> {
+		debug_assert!(blocks.iter().map(|b| b.is_square()).reduce(|b1, b2| b1 && b2).unwrap());
+
+		let sizes: Vec<usize> = blocks.iter().map(|b| b.col_count()).collect();
+		let n = sizes.iter().sum();
+
+		let mut matrix = Matrix::new(n, n);
+
+		let mut current_start = 0;
+
+		for i in 0..blocks.len() {
+			matrix.set_submatrix(
+				current_start..(current_start + sizes[i]), 
+				current_start..(current_start + sizes[i]), 
+				blocks[i].clone()
+			);
+			current_start += sizes[i];
+		}
+
+		matrix
+	}
+
 	/// Creates an upper bidiagonal matrix from a diagonal and superdiagonal
 	pub fn from_bidiagonal(diagonal: Vec<R>, superdiagonal: Vec<R>) -> Matrix<R> {
 		debug_assert_eq!(diagonal.len(), superdiagonal.len() + 1);
