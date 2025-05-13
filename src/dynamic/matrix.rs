@@ -1,6 +1,6 @@
 use std::cmp::min;
 use std::fmt::Debug;
-use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Range, RangeInclusive, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Range, Sub, SubAssign};
 use std::{usize, vec};
 use algebra_kit::algebra::{Field, Ring};
 use rand_distr::Distribution;
@@ -20,19 +20,6 @@ pub struct Matrix<R: Ring> {
 	col_count: usize
 }
 
-/// A trait allowing for multiple arguments to get and set elements of a 
-/// matrix
-pub trait MatrixIndex<T> {
-
-	type Accessee;
-
-	/// Returns the value(s) at a requested index or range
-	fn get(&self, index: T) -> Self::Accessee;
-
-	/// Writes to the value(s) at a requested index or range
-	fn set(&mut self, index: T, val: Self::Accessee);
-
-}
 
 #[macro_export]
 macro_rules! compatible_vectors {
@@ -521,67 +508,6 @@ impl<R: Ring> IndexMut<usize> for Matrix<R> {
 		]
 	}
 }
-
-impl<R: Ring> Index<(usize, usize)> for Matrix<R> {
-	type Output = R;
-
-	fn index(&self, index: (usize, usize)) -> &Self::Output {
-		let (r, c) = index;
-		&self.flatmap[index!(self.row_count(), self.col_count, r, c)]
-	}
-}
-
-impl<R: Ring> IndexMut<(usize, usize)> for Matrix<R> {
-	fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
-		let (r, c) = index;
-		let m = self.row_count();
-		let n = self.col_count();
-		&mut self.flatmap[index!(m, n, r, c)]
-	}
-}
-
-impl<R: Ring> MatrixIndex<(Range<usize>, Range<usize>)> for Matrix<R> {
-	type Accessee = Matrix<R>;
-
-	fn get(&self, index: (Range<usize>, Range<usize>)) -> Self::Accessee {
-		let (row_range, col_range) = index;
-		self.get_submatrix(row_range, col_range)
-	}
-
-	fn set(&mut self, index: (Range<usize>, Range<usize>), val: Self::Accessee) {
-		let (row_range, col_range) = index;
-		self.set_submatrix(row_range, col_range, val);
-	}
-}
-
-impl<R: Ring> MatrixIndex<(Range<usize>, usize)> for Matrix<R> {
-	type Accessee = Matrix<R>;
-
-	fn get(&self, index: (Range<usize>, usize)) -> Self::Accessee {
-		let (row_range, col) = index;
-		self.get_submatrix(row_range, col..(col + 1))
-	}
-
-	fn set(&mut self, index: (Range<usize>, usize) , val: Self::Accessee) {
-		let (row_range, col) = index;
-		self.set_submatrix(row_range, col..(col + 1), val);
-	}
-}
-
-impl<R: Ring> MatrixIndex<(usize, Range<usize>)> for Matrix<R> {
-	type Accessee = Matrix<R>;
-
-	fn get(&self, index: (usize, Range<usize>)) -> Self::Accessee {
-		let (row, col_range) = index;
-		self.get_submatrix(row..(row + 1), col_range)
-	}
-
-	fn set(&mut self, index: (usize, Range<usize>), val: Self::Accessee) {
-		let (row, col_range) = index;
-		self.set_submatrix(row..(row + 1), col_range, val);
-	}
-}
-
 
 // MARK: Comparison
 
