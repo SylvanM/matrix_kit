@@ -210,11 +210,15 @@ impl<R: Ring> Matrix<R> {
 
 	/// Returns a copy of the entry at row `r` and column `c`
 	pub fn get(&self, r: usize, c: usize) -> R {
+		debug_assert!(r < self.row_count());
+		debug_assert!(c < self.col_count());
 		self.flatmap[index!(self.row_count, self.col_count, r, c)].clone()
 	}
 
 	/// Sets the entry at row `r` and column `c` to `x`
 	pub fn set(&mut self, r: usize, c: usize, x: R) {
+		debug_assert!(r < self.row_count());
+		debug_assert!(c < self.col_count());
 		self.flatmap[index!(self.row_count, self.col_count, r, c)] = x;
 	} 
 
@@ -361,6 +365,9 @@ impl<R: Ring> Matrix<R> {
 	pub fn set_submatrix(&mut self, row_range: Range<usize>, col_range: Range<usize>, submat: Matrix<R>) {
 		debug_assert_eq!(row_range.len(), submat.row_count());
 		debug_assert_eq!(col_range.len(), submat.col_count());
+
+		debug_assert!(row_range.end <= self.row_count());
+		debug_assert!(col_range.end <= self.col_count());
 
 		for r in row_range.clone() {
 			for c in col_range.clone() {
