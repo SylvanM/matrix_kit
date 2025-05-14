@@ -40,11 +40,6 @@ impl<T: Clone> Matrix<T> {
 		Matrix { flatmap, row_count: rows, col_count: cols }
 	}
 
-	/// Constructs a matrix of all zeroes for a given dimension
-	pub fn new(rows: usize, cols: usize) -> Matrix<T> {
-		Matrix::from_flatmap(rows, cols, Vec::<T>::with_capacity(rows * cols))
-	}
-
 	/// Constructs a matrix defined index-wise
 	pub fn from_index_def(
 		rows: usize,
@@ -75,24 +70,6 @@ impl<T: Clone> Matrix<T> {
 	}
 
 	// MARK: Properties
-
-	/// Returns the diagonal of this matrix as a list
-	pub fn get_diagonal(&self) -> Vec<T> {
-		let mut diagonal = Vec::with_capacity(min(self.row_count(), self.col_count()));
-		for i in 0..diagonal.len() {
-			diagonal[i] = self.get(i, i)
-		}
-		diagonal
-	}
-
-	/// Returns the upper diagonal of this matrix as a list
-	pub fn get_upperdiagonal(&self) -> Vec<T> {
-		let mut upper_diagonal = Vec::with_capacity(min(self.row_count(), self.col_count()) - 1);
-		for i in 0..upper_diagonal.len() {
-			upper_diagonal[i] = self.get(i, i + 1)
-		}
-		upper_diagonal
-	}
 
 	/// Returns whether or not this is a square matrix
 	pub fn is_square(&self) -> bool {
@@ -236,20 +213,16 @@ impl<T: Clone> Matrix<T> {
 	pub fn append_mat_bottom(&mut self, mat: Matrix<T>) {
 		debug_assert_eq!(self.col_count(), mat.col_count());
 
-		let original = self.clone();
-		*self = Matrix::new(self.row_count() + mat.row_count(), self.col_count());
 
-		for r in 0..original.row_count() {
-			for c in 0..original.col_count() {
-				self.set(r, c, original.get(r, c));
+		let new = Matrix::from_index_def(self.row_count() + mat.row_count(), self.col_count(), &mut |r, c|
+			if r < self.row_count() {
+				self.get(r, c)
+			} else {
+				mat.get(r - self.row_count(), c)
 			}
-		}
+		);
 
-		for r in 0..mat.row_count() {
-			for c in 0..mat.col_count() {
-				self.set(original.row_count() + r, c, mat.get(r, c));
-			}
-		}
+		*self = new
 	}
 
 	// MARK: Utility
@@ -278,16 +251,9 @@ impl<T: Clone> Matrix<T> {
 
 	/// Accesses a sub-matrix of this matrix
 	pub fn get_submatrix(&self, row_range: Range<usize>, col_range: Range<usize>) -> Matrix<T> {
-		let mut submat = Matrix::new(row_range.len(), col_range.len());
-
-		for r in row_range.clone() {
-			for c in col_range.clone() {
-				submat.set(r - row_range.start, c - col_range.start, 
-					self.get(r, c));
-			}
-		}
-
-		submat
+		Matrix::from_index_def(row_range.len(), col_range.len(), &mut |r, c| 
+			self.get(r + row_range.start, c + col_range.start)
+		)
 	}
 
 	/// Writes to a sub-matrix of this matrix
@@ -311,6 +277,31 @@ impl<T: Clone> Matrix<T> {
 }
 
 impl<R: Ring> Matrix<R> {
+
+	// MARK: Initializers
+
+	/// Constructs a matrix of all zeroes for a given dimension
+	pub fn new(rows: usize, cols: usize) -> Matrix<R> {
+		Matrix::from_flatmap(rows, cols, vec![R::zero() ; rows * cols])
+	}
+
+	/// Returns the diagonal of this matrix as a list
+	pub fn get_diagonal(&self) -> Vec<R> {
+		let mut diagonal = vec![R::zero() ; min(self.col_count(), self.row_count())];
+		for i in 0..diagonal.len() {
+			diagonal[i] = self.get(i, i)
+		}
+		diagonal
+	}
+
+	/// Returns the upper diagonal of this matrix as a list
+	pub fn get_upperdiagonal(&self) -> Vec<R> {
+		let mut upper_diagonal = vec![R::zero() ; min(self.col_count(), self.row_count()) - 1];
+		for i in 0..upper_diagonal.len() {
+			upper_diagonal[i] = self.get(i, i + 1)
+		}
+		upper_diagonal
+	}
 
 	// MARK: Math
 
