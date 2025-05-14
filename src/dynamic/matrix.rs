@@ -694,7 +694,7 @@ mod matrix_tests {
     #[test]
     fn test_owen() {
         let a = Matrix::from_flatmap(3, 3, vec![1., 2., 3., 4., 5., 6., 7., 8., 9.]);
-        println!("a = {:?}", a);
+        println!("a = {:?}", a.get_diagonal());
         let b = a.get_submatrix(Range { start: 1, end: 3 }, Range { start: 0, end: 2 });
         println!("b = {:?}", b);
         // assert_eq!(a, b);
