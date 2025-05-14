@@ -1,7 +1,7 @@
 use std::cmp::min;
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Range, Sub, SubAssign};
-use std::{usize, vec};
+use std::usize;
 use algebra_kit::algebra::{Field, Ring};
 use rand_distr::Distribution;
 use crate::index;
@@ -9,13 +9,16 @@ use crate::dynamic::dynamic_vector_util::*;
 
 // MARK: Matrix Type
 
-/// A dynamically sized matrix with entries in a ring `R`
+/// A dynamically sized matrix with entries of a type `T`
 /// 
 /// Data is stored column-wise, so adjacent elements of the
 /// flatmap vector are in the same column (modulo column breaks)
+/// 
+/// If T is a Ring, many more useful operations open up. When T is an abstract 
+/// data type, this is pretty much only useful for storage.
 #[derive(Clone)]
-pub struct Matrix<R: Ring> {
-	flatmap: Vec<R>,
+pub struct Matrix<T: Clone> {
+	flatmap: Vec<T>,
 	row_count: usize,
 	col_count: usize
 }
@@ -28,20 +31,329 @@ macro_rules! compatible_vectors {
 	};
 }
 
-impl<R: Ring> Matrix<R> {
+impl<T: Clone> Matrix<T> {
 
 	// MARK: Constructors
 
 	/// Constructs a matrix from a flat vector
-	pub fn from_flatmap(rows: usize, cols: usize, flatmap: Vec<R>) -> Matrix<R> {
+	pub fn from_flatmap(rows: usize, cols: usize, flatmap: Vec<T>) -> Matrix<T> {
 		Matrix { flatmap, row_count: rows, col_count: cols }
 	}
 
 	/// Constructs a matrix of all zeroes for a given dimension
-	pub fn new(rows: usize, cols: usize) -> Matrix<R> {
-		Matrix::from_flatmap(rows, cols, vec![R::zero() ; rows * cols])
+	pub fn new(rows: usize, cols: usize) -> Matrix<T> {
+		Matrix::from_flatmap(rows, cols, Vec::<T>::with_capacity(rows * cols))
 	}
 
+	/// Constructs a matrix defined index-wise
+	pub fn from_index_def(
+		rows: usize,
+		cols: usize,
+		at_index: &mut dyn FnMut(usize, usize) -> T) -> Matrix<T> {
+
+		Matrix::from_flatmap(rows, cols, Vec::from_iter((0..(rows * cols)).map(|i|
+			at_index(i % rows, i / rows)
+		)))
+	}
+
+	/// Constructs a matrix with the given columns
+	pub fn from_cols(columns: Vec<Matrix<T>>) -> Matrix<T> {
+		let m = columns[0].row_count();
+		// Make sure they are all vectors of the same size
+		debug_assert!(columns.iter().map(|c| c.is_vector()).reduce(|acc, e| acc && e).unwrap());
+		debug_assert!(columns.iter().map(|c| c.row_count() == m).reduce(|acc, e| acc && e).unwrap());
+
+		let mut flatmap = Vec::with_capacity(columns.len() * m);
+
+		for c in 0..columns.len() {
+			for r in 0..m {
+				flatmap[index!(m, columns.len(), r, c)] = columns[c].get(r, 0);
+			}
+		}
+
+		Matrix { flatmap, row_count: m, col_count: columns.len() }
+	}
+
+	// MARK: Properties
+
+	/// Returns the diagonal of this matrix as a list
+	pub fn get_diagonal(&self) -> Vec<T> {
+		let mut diagonal = Vec::with_capacity(min(self.row_count(), self.col_count()));
+		for i in 0..diagonal.len() {
+			diagonal[i] = self.get(i, i)
+		}
+		diagonal
+	}
+
+	/// Returns the upper diagonal of this matrix as a list
+	pub fn get_upperdiagonal(&self) -> Vec<T> {
+		let mut upper_diagonal = Vec::with_capacity(min(self.row_count(), self.col_count()) - 1);
+		for i in 0..upper_diagonal.len() {
+			upper_diagonal[i] = self.get(i, i + 1)
+		}
+		upper_diagonal
+	}
+
+	/// Returns whether or not this is a square matrix
+	pub fn is_square(&self) -> bool {
+		self.row_count() == self.col_count()
+	}
+
+	/// The amount of rows in this matrix
+	#[inline]
+	pub fn row_count(&self) -> usize {
+		self.row_count
+	}
+
+	/// The amount of columns in this matrix
+	#[inline]
+	pub fn col_count(&self) -> usize {
+		self.col_count
+	}
+
+	/// Returns a copy of the underlying vector of this matrix
+	pub fn as_vec(&self) -> Vec<T> {
+		self.flatmap.clone()
+	}
+
+	// MARK: Utility
+
+	/// Returns the columns of this matrix
+	pub fn columns(&self) -> Vec<Matrix<T>> {
+		(0..self.col_count()).into_iter().map(|c| 
+			Matrix::from_flatmap(self.row_count(), 1, self.flatmap[
+				index!(self.row_count(), self.col_count(), 0, c)..index!(self.row_count(), self.col_count(), self.row_count(), c)
+			].to_vec())
+		).collect()
+	}
+
+	/// Returns `true` if this matrix is really just a column vector
+	pub fn is_vector(&self) -> bool {
+		self.col_count() == 1
+	}
+
+	/// Returns whether or not this is a row vector
+	pub fn is_row_vector(&self) -> bool {
+		self.row_count() == 1
+	}
+
+	/// Returns a copy of the entry at row `r` and column `c`
+	pub fn get(&self, r: usize, c: usize) -> T {
+		debug_assert!(r < self.row_count());
+		debug_assert!(c < self.col_count());
+		self.flatmap[index!(self.row_count, self.col_count, r, c)].clone()
+	}
+
+	/// Sets the entry at row `r` and column `c` to `x`
+	pub fn set(&mut self, r: usize, c: usize, x: T) {
+		debug_assert!(r < self.row_count());
+		debug_assert!(c < self.col_count());
+		self.flatmap[index!(self.row_count, self.col_count, r, c)] = x;
+	} 
+
+	/// Appends a reference to a column to this matrix on the right
+	pub fn append_col_ref(&mut self, col: &mut Vec<T>) { 
+		assert_eq!(col.len(), self.row_count());
+
+		self.col_count += 1;
+		self.flatmap.append(col);
+	}
+
+	/// Appends a reference to a matrix to this matrix on the right
+	pub fn append_mat_right_ref(&mut self, mat: &mut Matrix<T>) {
+		assert_eq!(self.row_count(), mat.row_count());
+
+		self.col_count += mat.col_count();
+		self.flatmap.append(&mut mat.flatmap);
+	}
+
+	/// Appends a column to this matrix on the right
+	pub fn append_col(&mut self, col: Vec<T>) {
+		assert_eq!(col.len(), self.row_count());
+		let mut new_flatmap = Vec::with_capacity(self.flatmap.len() + col.len());
+		
+		for i in 0..self.flatmap.len() {
+			new_flatmap[i] = self.flatmap[i].clone();
+		}
+
+		for i in 0..col.len() {
+			new_flatmap[i + self.flatmap.len()] = col[i].clone();
+		}
+
+		self.col_count += 1;
+		self.flatmap = new_flatmap;
+	}
+
+	/// Appends a matrix to this matrix, on the right
+	pub fn append_mat_right(&mut self, mat: Matrix<T>) {
+		assert_eq!(self.row_count(), mat.row_count());
+		let mut new_flatmap = Vec::with_capacity(self.flatmap.len() + mat.flatmap.len());
+
+		for i in 0..self.flatmap.len() {
+			new_flatmap[i] = self.flatmap[i].clone();
+		}
+
+		for i in 0..mat.flatmap.len() {
+			new_flatmap[i + self.flatmap.len()] = mat.flatmap[i].clone();
+		}
+
+		self.col_count += mat.col_count();
+		self.flatmap = new_flatmap;
+	}
+
+	/// Appends a row to this matrix on the bottom
+	pub fn append_row(&mut self, row: Vec<T>) {
+		assert_eq!(row.len(), self.col_count());
+		let mut new_flatmap = Vec::with_capacity(self.flatmap.len() + row.len());
+		
+		// Set the original values in the new flatmap!
+		for r in 0..self.row_count() {
+			for c in 0..self.col_count() {
+				new_flatmap[
+					index!(self.row_count() + 1, self.col_count(), r, c)
+				] = self.flatmap[
+					index!(self.row_count(), self.col_count(), r, c)
+				].clone();
+			}
+		}
+
+		// set the new row in the flatmap!
+		for c in 0..row.len() {
+			new_flatmap[
+				index!(
+					self.row_count() + 1, 
+					self.col_count(), 
+					self.row_count(), c
+				)
+			] = row[c].clone();
+		}
+
+		self.row_count += 1;
+		self.flatmap = new_flatmap;
+	}
+
+	/// Appends a matrix to this matrix, on the bottom
+	pub fn append_mat_bottom(&mut self, mat: Matrix<T>) {
+		debug_assert_eq!(self.col_count(), mat.col_count());
+
+		let original = self.clone();
+		*self = Matrix::new(self.row_count() + mat.row_count(), self.col_count());
+
+		for r in 0..original.row_count() {
+			for c in 0..original.col_count() {
+				self.set(r, c, original.get(r, c));
+			}
+		}
+
+		for r in 0..mat.row_count() {
+			for c in 0..mat.col_count() {
+				self.set(original.row_count() + r, c, mat.get(r, c));
+			}
+		}
+	}
+
+	// MARK: Utility
+
+	/// Applies a function to all entries in this matrix, returning the result 
+	/// as a separate matrix
+	pub fn applying_to_all<J: Ring>(&self, f: &dyn Fn(T) -> J) -> Matrix<J> {
+		Matrix { 
+			flatmap: self.flatmap.iter().map(|x| f(x.clone())).collect(), 
+			row_count: self.row_count(), 
+			col_count: self.col_count() 
+		}
+	}
+
+	/// Applies a function to all entries in this matrix, in place
+	pub fn apply_to_all(&mut self, f: &dyn Fn(T) -> T) {
+		for i in 0..self.flatmap.len() {
+			self.flatmap[i] = f(self.flatmap[i].clone())
+		}
+	}
+
+	/// The transpose of this matrix 
+	pub fn transpose(&self) -> Matrix<T> {
+		Matrix::from_index_def(self.col_count(), self.row_count, &mut |r, c| self.get(c, r))
+	}
+
+	/// Accesses a sub-matrix of this matrix
+	pub fn get_submatrix(&self, row_range: Range<usize>, col_range: Range<usize>) -> Matrix<T> {
+		let mut submat = Matrix::new(row_range.len(), col_range.len());
+
+		for r in row_range.clone() {
+			for c in col_range.clone() {
+				submat.set(r - row_range.start, c - col_range.start, 
+					self.get(r, c));
+			}
+		}
+
+		submat
+	}
+
+	/// Writes to a sub-matrix of this matrix
+	pub fn set_submatrix(&mut self, row_range: Range<usize>, col_range: Range<usize>, submat: Matrix<T>) {
+		debug_assert_eq!(row_range.len(), submat.row_count());
+		debug_assert_eq!(col_range.len(), submat.col_count());
+
+		debug_assert!(row_range.end <= self.row_count());
+		debug_assert!(col_range.end <= self.col_count());
+
+		for r in row_range.clone() {
+			for c in col_range.clone() {
+				self.set(r, c,
+					submat.get(r - row_range.start, c - col_range.start));
+			}
+		}
+	}
+
+	
+
+}
+
+impl<R: Ring> Matrix<R> {
+
+	// MARK: Math
+
+	/// Computes the inner-product of this vector with another vector
+	/// 
+	/// This operates in the entries in the flatmap of each matrix, so if 
+	/// the argument to this function are not proper vectors (i.e., they 
+	/// are matrices with both dimensions greater than 1) then the behavior
+	/// here is not well-defined
+	pub fn inner_product(&self, other: &Matrix<R>) -> R {
+		debug_assert_eq!(self.flatmap.len(), other.flatmap.len());
+
+		let mut inner_product = R::zero();
+
+		for i in 0..self.flatmap.len() {
+			inner_product += self.flatmap[i].clone() * other.flatmap[i].clone();
+		}
+
+		inner_product
+	}
+
+	/// The squared L2 norm of this vector
+	pub fn l2_norm_squared(&self) -> R {
+		self.inner_product(self)
+	}
+
+	/// Computes the point-wise product of this and another matrix of the same 
+	/// dimension
+	pub fn hadamard(&self, other: Matrix<R>) -> Matrix<R> {
+
+		debug_assert_eq!(self.col_count(), other.col_count());
+		debug_assert_eq!(self.row_count(), other.row_count());
+
+		let mut hada = self.clone();
+
+		for i in 0..(self.flatmap.len()) { 
+			hada.flatmap[i] *= other.flatmap[i].clone()
+		}
+
+		hada
+	}
+
+	
 	/// Constructs the rows * cols identity matrix
 	pub fn identity(rows: usize, cols: usize) -> Matrix<R> {
 		let mut mat = Matrix::new(rows, cols);
@@ -98,88 +410,6 @@ impl<R: Ring> Matrix<R> {
 		})
 	}
 
-	/// Constructs a matrix defined index-wise
-	pub fn from_index_def(
-		rows: usize,
-		cols: usize,
-		at_index: &mut dyn FnMut(usize, usize) -> R) -> Matrix<R> {
-
-		Matrix::from_flatmap(rows, cols, Vec::from_iter((0..(rows * cols)).map(|i|
-			at_index(i % rows, i / rows)
-		)))
-	}
-
-	/// Constructs a matrix with the given columns
-	pub fn from_cols(columns: Vec<Matrix<R>>) -> Matrix<R> {
-		let m = columns[0].row_count();
-		// Make sure they are all vectors of the same size
-		debug_assert!(columns.iter().map(|c| c.is_vector()).reduce(|acc, e| acc && e).unwrap());
-		debug_assert!(columns.iter().map(|c| c.row_count() == m).reduce(|acc, e| acc && e).unwrap());
-
-		let mut flatmap = vec![R::zero() ; columns.len() * m];
-
-		for c in 0..columns.len() {
-			for r in 0..m {
-				flatmap[index!(m, columns.len(), r, c)] = columns[c].get(r, 0);
-			}
-		}
-
-		Matrix { flatmap, row_count: m, col_count: columns.len() }
-	}
-
-	// MARK: Properties
-
-	/// Returns the diagonal of this matrix as a list
-	pub fn get_diagonal(&self) -> Vec<R> {
-		let mut diagonal = vec![R::zero() ; min(self.row_count(), self.col_count())];
-		for i in 0..diagonal.len() {
-			diagonal[i] = self.get(i, i)
-		}
-		diagonal
-	}
-
-	/// Returns the upper diagonal of this matrix as a list
-	pub fn get_upperdiagonal(&self) -> Vec<R> {
-		let mut upper_diagonal = vec![R::zero() ; min(self.row_count(), self.col_count()) - 1];
-		for i in 0..upper_diagonal.len() {
-			upper_diagonal[i] = self.get(i, i + 1)
-		}
-		upper_diagonal
-	}
-
-	/// Returns whether or not this is a square matrix
-	pub fn is_square(&self) -> bool {
-		self.row_count() == self.col_count()
-	}
-
-	/// The amount of rows in this matrix
-	#[inline]
-	pub fn row_count(&self) -> usize {
-		self.row_count
-	}
-
-	/// The amount of columns in this matrix
-	#[inline]
-	pub fn col_count(&self) -> usize {
-		self.col_count
-	}
-
-	/// Returns a copy of the underlying vector of this matrix
-	pub fn as_vec(&self) -> Vec<R> {
-		self.flatmap.clone()
-	}
-
-	// MARK: Utility
-
-	/// Returns the columns of this matrix
-	pub fn columns(&self) -> Vec<Matrix<R>> {
-		(0..self.col_count()).into_iter().map(|c| 
-			Matrix::from_flatmap(self.row_count(), 1, self.flatmap[
-				index!(self.row_count(), self.col_count(), 0, c)..index!(self.row_count(), self.col_count(), self.row_count(), c)
-			].to_vec())
-		).collect()
-	}
-
 	/// Returns true if this matrix is the identity matrix
 	pub fn is_identity(&self) -> bool {
 		for r in 0..self.row_count() {
@@ -197,227 +427,6 @@ impl<R: Ring> Matrix<R> {
 
 		return true;
 	}
-
-	/// Returns `true` if this matrix is really just a column vector
-	pub fn is_vector(&self) -> bool {
-		self.col_count() == 1
-	}
-
-	/// Returns whether or not this is a row vector
-	pub fn is_row_vector(&self) -> bool {
-		self.row_count() == 1
-	}
-
-	/// Returns a copy of the entry at row `r` and column `c`
-	pub fn get(&self, r: usize, c: usize) -> R {
-		debug_assert!(r < self.row_count());
-		debug_assert!(c < self.col_count());
-		self.flatmap[index!(self.row_count, self.col_count, r, c)].clone()
-	}
-
-	/// Sets the entry at row `r` and column `c` to `x`
-	pub fn set(&mut self, r: usize, c: usize, x: R) {
-		debug_assert!(r < self.row_count());
-		debug_assert!(c < self.col_count());
-		self.flatmap[index!(self.row_count, self.col_count, r, c)] = x;
-	} 
-
-	/// Appends a reference to a column to this matrix on the right
-	pub fn append_col_ref(&mut self, col: &mut Vec<R>) { 
-		assert_eq!(col.len(), self.row_count());
-
-		self.col_count += 1;
-		self.flatmap.append(col);
-	}
-
-	/// Appends a reference to a matrix to this matrix on the right
-	pub fn append_mat_right_ref(&mut self, mat: &mut Matrix<R>) {
-		assert_eq!(self.row_count(), mat.row_count());
-
-		self.col_count += mat.col_count();
-		self.flatmap.append(&mut mat.flatmap);
-	}
-
-	/// Appends a column to this matrix on the right
-	pub fn append_col(&mut self, col: Vec<R>) {
-		assert_eq!(col.len(), self.row_count());
-		let mut new_flatmap = vec![R::zero() ; self.flatmap.len() + col.len()];
-		
-		for i in 0..self.flatmap.len() {
-			new_flatmap[i] = self.flatmap[i].clone();
-		}
-
-		for i in 0..col.len() {
-			new_flatmap[i + self.flatmap.len()] = col[i].clone();
-		}
-
-		self.col_count += 1;
-		self.flatmap = new_flatmap;
-	}
-
-	/// Appends a matrix to this matrix, on the right
-	pub fn append_mat_right(&mut self, mat: Matrix<R>) {
-		assert_eq!(self.row_count(), mat.row_count());
-		let mut new_flatmap = vec![R::zero() ; self.flatmap.len() + mat.flatmap.len()];
-
-		for i in 0..self.flatmap.len() {
-			new_flatmap[i] = self.flatmap[i].clone();
-		}
-
-		for i in 0..mat.flatmap.len() {
-			new_flatmap[i + self.flatmap.len()] = mat.flatmap[i].clone();
-		}
-
-		self.col_count += mat.col_count();
-		self.flatmap = new_flatmap;
-	}
-
-	/// Appends a row to this matrix on the bottom
-	pub fn append_row(&mut self, row: Vec<R>) {
-		assert_eq!(row.len(), self.col_count());
-		let mut new_flatmap = vec![R::zero() ; self.flatmap.len() + row.len()];
-		
-		// Set the original values in the new flatmap!
-		for r in 0..self.row_count() {
-			for c in 0..self.col_count() {
-				new_flatmap[
-					index!(self.row_count() + 1, self.col_count(), r, c)
-				] = self.flatmap[
-					index!(self.row_count(), self.col_count(), r, c)
-				].clone();
-			}
-		}
-
-		// set the new row in the flatmap!
-		for c in 0..row.len() {
-			new_flatmap[
-				index!(
-					self.row_count() + 1, 
-					self.col_count(), 
-					self.row_count(), c
-				)
-			] = row[c].clone();
-		}
-
-		self.row_count += 1;
-		self.flatmap = new_flatmap;
-	}
-
-	/// Appends a matrix to this matrix, on the bottom
-	pub fn append_mat_bottom(&mut self, mat: Matrix<R>) {
-		debug_assert_eq!(self.col_count(), mat.col_count());
-
-		let original = self.clone();
-		*self = Matrix::new(self.row_count() + mat.row_count(), self.col_count());
-
-		for r in 0..original.row_count() {
-			for c in 0..original.col_count() {
-				self.set(r, c, original.get(r, c));
-			}
-		}
-
-		for r in 0..mat.row_count() {
-			for c in 0..mat.col_count() {
-				self.set(original.row_count() + r, c, mat.get(r, c));
-			}
-		}
-	}
-
-	// MARK: Utility
-
-	/// Applies a function to all entries in this matrix, returning the result 
-	/// as a separate matrix
-	pub fn applying_to_all<J: Ring>(&self, f: &dyn Fn(R) -> J) -> Matrix<J> {
-		Matrix { 
-			flatmap: self.flatmap.iter().map(|x| f(x.clone())).collect(), 
-			row_count: self.row_count(), 
-			col_count: self.col_count() 
-		}
-	}
-
-	/// Applies a function to all entries in this matrix, in place
-	pub fn apply_to_all(&mut self, f: &dyn Fn(R) -> R) {
-		for i in 0..self.flatmap.len() {
-			self.flatmap[i] = f(self.flatmap[i].clone())
-		}
-	}
-
-	/// The transpose of this matrix 
-	pub fn transpose(&self) -> Matrix<R> {
-		Matrix::from_index_def(self.col_count(), self.row_count, &mut |r, c| self.get(c, r))
-	}
-
-	/// Accesses a sub-matrix of this matrix
-	pub fn get_submatrix(&self, row_range: Range<usize>, col_range: Range<usize>) -> Matrix<R> {
-		let mut submat = Matrix::new(row_range.len(), col_range.len());
-
-		for r in row_range.clone() {
-			for c in col_range.clone() {
-				submat.set(r - row_range.start, c - col_range.start, 
-					self.get(r, c));
-			}
-		}
-
-		submat
-	}
-
-	/// Writes to a sub-matrix of this matrix
-	pub fn set_submatrix(&mut self, row_range: Range<usize>, col_range: Range<usize>, submat: Matrix<R>) {
-		debug_assert_eq!(row_range.len(), submat.row_count());
-		debug_assert_eq!(col_range.len(), submat.col_count());
-
-		debug_assert!(row_range.end <= self.row_count());
-		debug_assert!(col_range.end <= self.col_count());
-
-		for r in row_range.clone() {
-			for c in col_range.clone() {
-				self.set(r, c,
-					submat.get(r - row_range.start, c - col_range.start));
-			}
-		}
-	}
-
-	// MARK: Math
-
-	/// Computes the inner-product of this vector with another vector
-	/// 
-	/// This operates in the entries in the flatmap of each matrix, so if 
-	/// the argument to this function are not proper vectors (i.e., they 
-	/// are matrices with both dimensions greater than 1) then the behavior
-	/// here is not well-defined
-	pub fn inner_product(&self, other: &Matrix<R>) -> R {
-		debug_assert_eq!(self.flatmap.len(), other.flatmap.len());
-
-		let mut inner_product = R::zero();
-
-		for i in 0..self.flatmap.len() {
-			inner_product += self.flatmap[i].clone() * other.flatmap[i].clone();
-		}
-
-		inner_product
-	}
-
-	/// The squared L2 norm of this vector
-	pub fn l2_norm_squared(&self) -> R {
-		self.inner_product(self)
-	}
-
-	/// Computes the point-wise product of this and another matrix of the same 
-	/// dimension
-	pub fn hadamard(&self, other: Matrix<R>) -> Matrix<R> {
-
-		debug_assert_eq!(self.col_count(), other.col_count());
-		debug_assert_eq!(self.row_count(), other.row_count());
-
-		let mut hada = self.clone();
-
-		for i in 0..(self.flatmap.len()) { 
-			hada.flatmap[i] *= other.flatmap[i].clone()
-		}
-
-		hada
-	}
-
 }
 
 // MARK: Debug
