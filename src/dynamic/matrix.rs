@@ -431,7 +431,7 @@ impl<R: Ring> Matrix<R> {
 
 // MARK: Debug
 
-impl<R: Ring> Debug for Matrix<R> {
+impl<T: Debug + Clone> Debug for Matrix<T> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		// get the widest value so we know how many spaces we need!
 		let mut widest_str_len = 0;
@@ -502,8 +502,8 @@ impl<R: Ring> Debug for Matrix<R> {
 
 // MARK: Index
 
-impl<R: Ring> Index<usize> for Matrix<R> {
-	type Output = [R];
+impl<T: Clone> Index<usize> for Matrix<T> {
+	type Output = [T];
 
 	/// Returns the column `index` as a slice
 	fn index(&self, index: usize) -> &Self::Output {
@@ -514,7 +514,7 @@ impl<R: Ring> Index<usize> for Matrix<R> {
 	}
 }
 
-impl<R: Ring> IndexMut<usize> for Matrix<R> {
+impl<T: Clone> IndexMut<usize> for Matrix<T> {
 
 	/// Returns a mutable reference to the column `index`
 	fn index_mut(&mut self, index: usize) -> &mut Self::Output {
@@ -527,7 +527,7 @@ impl<R: Ring> IndexMut<usize> for Matrix<R> {
 
 // MARK: Comparison
 
-impl<R: Ring> PartialEq for Matrix<R> {
+impl<T: Clone + PartialEq> PartialEq for Matrix<T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.row_count == other.row_count && self.col_count == other.col_count && self.flatmap == other.flatmap
 	}
