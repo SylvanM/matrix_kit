@@ -283,6 +283,15 @@ impl<R: Ring> Matrix<R> {
 		Matrix::from_flatmap(rows, cols, vec![R::zero() ; rows * cols])
 	}
 
+	/// Constructs a matrix of all ones
+	pub fn ones(rows: usize, cols: usize) -> Matrix<R> {
+		Matrix { 
+			flatmap: vec![R::one() ; rows * cols], 
+			row_count: rows, 
+			col_count: cols 
+		}
+	}
+
 	/// Returns the diagonal of this matrix as a list
 	pub fn get_diagonal(&self) -> Vec<R> {
 		let mut diagonal = vec![R::zero() ; min(self.col_count(), self.row_count())];
