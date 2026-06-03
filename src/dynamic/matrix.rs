@@ -1,11 +1,13 @@
 use std::cmp::min;
 use std::fmt::Debug;
+use std::mem::ManuallyDrop;
 use std::ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Range, Sub, SubAssign};
 use std::usize;
 use algebra_kit::algebra::{Field, Ring};
 use rand_distr::Distribution;
 use crate::index;
 use crate::dynamic::dynamic_vector_util::*;
+use num_traits::Signed;
 
 // MARK: Matrix Type
 
@@ -425,6 +427,15 @@ impl<R: Ring> Matrix<R> {
 
 		return true;
 	}
+}
+
+impl<R: Ring + Signed + Ord> Matrix<R> {
+
+	/// Computes the l-infinity norm of this vector 
+	pub fn l_inf_norm(&self) -> R {
+		self.flatmap.iter().min().unwrap().clone()
+	}
+
 }
 
 // MARK: Debug
