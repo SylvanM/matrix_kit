@@ -746,6 +746,78 @@ impl<F: Field> Matrix<F> {
 		Matrix::from_cols(u)
 	}
 
+	/// Performs one row operation
+	/// 
+	/// This takes in a vector c of coefficients, and an output index out_row,
+	/// and writes c*A to row out_row of matrix A
+	pub fn perform_row_op(&mut self, c: Matrix<F>, out_row: usize) {
+		let row_vector = c * self.clone();
+		for c in 0..self.col_count() {
+			self.set(out_row, c, row_vector.get(0, c));
+		}
+	}
+
+	/// Gaussian Elimination, mirroring operations onto another 
+	/// matrix.
+	/// 
+	/// This does FULL row-reduced echelon form. `other` must have the same
+	/// number of rows as this matrix.
+	pub fn row_reduce(&mut self, other: &mut Matrix<F>) {
+		assert_eq!(self.row_count(), other.row_count());
+
+		let m = self.row_count();
+		let mut pivot_row = 0;
+
+		for col in 0..self.col_count() {
+			// Find a row at or below pivot_row with a nonzero entry in this
+			// column. If there isn't one, this column has no pivot.
+			let Some(nonzero_row) = (pivot_row..m).find(|&r| !self.get(r, col).is_zero()) else {
+				continue;
+			};
+
+			// If the pivot entry is zero, add that row to the pivot row. (A swap
+			// would change two rows at once, so it isn't a single row op.)
+			if nonzero_row != pivot_row {
+				let mut c = Matrix::new(1, m);
+				c.set(0, pivot_row, F::one());
+				c.set(0, nonzero_row, F::one());
+				self.perform_row_op(c.clone(), pivot_row);
+				other.perform_row_op(c, pivot_row);
+			}
+
+			// Scale the pivot row so the pivot is 1
+			let mut c = Matrix::new(1, m);
+			c.set(0, pivot_row, self.get(pivot_row, col).inverse());
+			self.perform_row_op(c.clone(), pivot_row);
+			other.perform_row_op(c, pivot_row);
+
+			// Set the pivot exactly, since round-off can leave e.g. 0.9999999999999999
+			self.set(pivot_row, col, F::one());
+
+			// Zero out the rest of this column, above and below the pivot
+			for r in 0..m {
+				let entry = self.get(r, col);
+				if r == pivot_row || entry.is_zero() {
+					continue;
+				}
+
+				let mut c = Matrix::new(1, m);
+				c.set(0, r, F::one());
+				c.set(0, pivot_row, -entry);
+				self.perform_row_op(c.clone(), r);
+				other.perform_row_op(c, r);
+			}
+
+			pivot_row += 1;
+		}
+	}
+
+	pub fn inverse(&self) -> Matrix<F> {
+		let mut start = self.clone()
+		
+		let identity = 
+	}
+
 }
 
 // MARK: Linear Algebra over the Reals
