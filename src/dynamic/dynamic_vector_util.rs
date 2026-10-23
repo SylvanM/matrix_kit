@@ -36,7 +36,7 @@ pub fn mat_add<R: Ring>(m: usize, n: usize, a: &[R], b: &[R], out: &mut [R]) {
 /// Adds a matrix b to a, in place
 pub fn mat_add_assign<R: Ring>(m: usize, n: usize, a: &mut [R], b: &[R]) {
 	for i in 0..(m * n) {
-		a[i] += a[i].clone() + b[i].clone();
+		a[i] = a[i].clone() + b[i].clone();
 	}
 }
 
