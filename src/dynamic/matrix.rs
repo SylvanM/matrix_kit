@@ -813,9 +813,17 @@ impl<F: Field> Matrix<F> {
 	}
 
 	pub fn inverse(&self) -> Matrix<F> {
-		let mut start = self.clone()
+		let mut start = self.clone();
+		debug_assert!(self.is_square());
 		
-		let identity = 
+		let mut identity = Matrix::identity(
+			self.row_count(), self.col_count()
+		);
+
+		start.row_reduce(&mut identity);
+
+		identity
+
 	}
 
 }
