@@ -7,4 +7,6 @@
     have Matrix::<u8>::new(4, 4), this has un-initialized flatmap.
 - All the mat ops (adding, multing) should just take references, shouldn't
     need to clone everything constantly.
-- Rewrite row_reduce
+- Rewrite row_reduce by hand,
+  - As a part of that, use actual swaps as needed, not multiplying and adding 
+  - rows or whatever. That's some BS.
