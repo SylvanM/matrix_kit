@@ -1,7 +1,9 @@
 use crate::index;
+use std::{ops::{Index, IndexMut}, os::unix::raw::uid_t};
 
 mod constructors;
 mod fmt;
+mod iter;
 mod linalg;
 mod ops;
 mod shape;
@@ -53,8 +55,6 @@ impl<T: Clone> Matrix<T> {
 		)))
 	}
 
-	
-
 	// MARK: Properties
 
 	/// Returns whether or not this is a square matrix
@@ -102,7 +102,54 @@ impl<T: Clone> Matrix<T> {
 		debug_assert!(c < self.col_count());
 		self.flatmap[index!(self.row_count, self.col_count, r, c)] = x;
 	} 
+	
+}
 
+// MARK: Index
+
+impl<T: Clone> Index<usize> for Matrix<T> {
+	type Output = [T];
+
+	/// Returns the column `index` as a slice
+	fn index(&self, index: usize) -> &Self::Output {
+		&self.flatmap[
+			index!(self.row_count, self.col_count, 0, index)..
+			index!(self.row_count, self.col_count, self.row_count, index)
+		]
+	}
+}
+
+impl<T: Clone> IndexMut<usize> for Matrix<T> {
+
+	/// Returns a mutable reference to the column `index`
+	fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+		&mut self.flatmap[
+			index!(self.row_count, self.col_count, 0, index)..
+			index!(self.row_count, self.col_count, self.row_count, index)
+		]
+	}
+}
+
+impl<T: Clone> Index<(usize, usize)> for Matrix<T> {
+	type Output = T;
+
+	fn index(&self, index: (usize, usize)) -> &Self::Output {
+		let (r, c) = index;
+		&self.flatmap[index!(
+			self.row_count(),
+			self.col_count(),
+			r, c
+		)]
+	}
+}
+
+impl<T: Clone> IndexMut<(usize, usize)> for Matrix<T> {
+	fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
+		let (r, c) = index;
+		let m = self.row_count();
+		let n = self.col_count();
+		&mut self.flatmap[index!(m, n, r, c)]
+	}
 }
 
 #[cfg(test)]

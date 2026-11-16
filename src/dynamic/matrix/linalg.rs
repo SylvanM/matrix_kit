@@ -48,11 +48,16 @@ impl<R: Ring> Matrix<R> {
 
 }
 
-impl<R: Ring + Signed + Ord> Matrix<R> {
+impl<R: Ring + Signed + PartialOrd> Matrix<R> {
 
 	/// Computes the l-infinity norm of this vector 
 	pub fn l_inf_norm(&self) -> R {
-		self.flatmap.iter().min().unwrap().clone()
+		// We do this by hand instead of calling max() since floats don't
+		// conform to Ord, since they have NaN values.
+		self.flatmap.iter()
+			.map(|x| x.abs())
+			.reduce(|a, b| if b > a { b } else { a })
+			.unwrap()
 	}
 
 }
@@ -98,7 +103,7 @@ impl<F: Field> Matrix<F> {
 			}
 		}
 
-		Matrix::from_cols(u)
+		Matrix::from_col_vectors(u)
 	}
 
 	

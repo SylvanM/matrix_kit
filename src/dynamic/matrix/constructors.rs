@@ -8,8 +8,8 @@ impl<R: Ring> Matrix<R> {
 
 	// MARK: Initializers
 
-	/// Constructs a matrix with the given columns
-	pub fn from_cols(columns: Vec<Matrix<R>>) -> Matrix<R> {
+	/// Constructs a matrix with the given vectors as columns
+	pub fn from_col_vectors(columns: Vec<Matrix<R>>) -> Matrix<R> {
 		let m = columns[0].row_count();
 		// Make sure they are all vectors of the same size
 		debug_assert!(columns.iter().map(|c| c.is_vector()).reduce(|acc, e| acc && e).unwrap());
@@ -24,6 +24,30 @@ impl<R: Ring> Matrix<R> {
 		}
 
 		Matrix { flatmap, row_count: m, col_count: columns.len() }
+	}
+
+	/// Constructs a matrix from a Vec<Vec<>>, where data is aligned
+	/// column-wise. (So, columns are contiguous).
+	pub fn from_cols(columns: Vec<Vec<R>>) -> Matrix<R> {
+		for c in 0..columns.len() {
+			debug_assert_eq!(columns[c].len(), columns[0].len());
+		}
+
+		Matrix { 
+			flatmap: columns.concat(), 
+			row_count: columns[0].len(), 
+			col_count: columns.len() 
+		}
+	}
+
+	/// Constructs a column vector as a Matrix type
+	pub fn from_col_vec(col: Vec<R>) -> Matrix<R> {
+		Matrix { flatmap: col.clone(), row_count: col.len(), col_count: 1 }
+	}
+
+	/// Constructs a row vector as a Matrix type
+	pub fn from_row_vec(row: Vec<R>) -> Matrix<R> {
+		Matrix { flatmap: row.clone(), row_count: 1, col_count: row.len() }
 	}
 
 	/// Constructs a matrix of all zeroes for a given dimension
@@ -122,9 +146,8 @@ impl<R: Ring> Matrix<R> {
 					if self.get(r, c) != R::one() {
 						return false;
 					}
-					else if self.get(r, c) != R::zero() {
-						return false;
-					}
+				} else if self.get(r, c) != R::zero() {
+					return false;
 				}
 			}
 		}
@@ -147,5 +170,35 @@ impl Matrix<f64> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use rand::Rng;
 
+	#[test]
+	fn test_from_cols() {
+		let mut rng = rand::rng();
+		let m = rng.random_range(1..=(usize::MAX / 8));
+		let n = rng.random_range(1..=(usize::MAX / 8));
+
+		// We'll generate n random columns, each of length m, and 
+		// then try to make a matrix out of it, and make sure it's legit.
+		let mut vecs: Vec<Vec<f64>> = vec![vec![0f64 ; m] ; n];
+
+		for c in 0..n {
+			for i in 0..m {
+				vecs[c][i] = rng.random();
+			}
+		}
+
+		let cols = vecs.iter().map(|v| Matrix::from_col_vec(v.to_vec())).collect();
+
+		let col_matrix = Matrix::from_col_vectors(cols);
+		let vec_matrix = Matrix::from_cols(vecs);
+		debug_assert_eq!(col_matrix, vec_matrix);
+
+		for c in 0..m {
+			for c in 0..n {
+				
+			}
+		}
+		
+	}
 }

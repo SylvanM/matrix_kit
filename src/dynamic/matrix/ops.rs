@@ -4,30 +4,7 @@ use crate::index;
 use crate::dynamic::dynamic_vector_util::*;
 use super::Matrix;
 
-// MARK: Index
 
-impl<T: Clone> Index<usize> for Matrix<T> {
-	type Output = [T];
-
-	/// Returns the column `index` as a slice
-	fn index(&self, index: usize) -> &Self::Output {
-		&self.flatmap[
-			index!(self.row_count, self.col_count, 0, index)..
-			index!(self.row_count, self.col_count, self.row_count, index)
-		]
-	}
-}
-
-impl<T: Clone> IndexMut<usize> for Matrix<T> {
-
-	/// Returns a mutable reference to the column `index`
-	fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-		&mut self.flatmap[
-			index!(self.row_count, self.col_count, 0, index)..
-			index!(self.row_count, self.col_count, self.row_count, index)
-		]
-	}
-}
 
 // MARK: Comparison
 
